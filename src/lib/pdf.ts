@@ -1,6 +1,50 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+function parsePalmerNotation(teethStr: string) {
+  if (!teethStr) return { left: '-', right: '', hasFDI: false };
+  
+  const q1: string[] = [], q2: string[] = [], q3: string[] = [], q4: string[] = [];
+  const matches = String(teethStr).match(/\d+/g) || [];
+  
+  let hasFDI = false;
+  
+  matches.forEach(t => {
+    if (t.length === 2) {
+      const quad = t[0];
+      const tooth = t[1];
+      if (tooth >= '1' && tooth <= '8' && quad >= '1' && quad <= '4') {
+        hasFDI = true;
+        if (quad === '1' && !q1.includes(tooth)) q1.push(tooth);
+        else if (quad === '2' && !q2.includes(tooth)) q2.push(tooth);
+        else if (quad === '3' && !q3.includes(tooth)) q3.push(tooth);
+        else if (quad === '4' && !q4.includes(tooth)) q4.push(tooth);
+      }
+    }
+  });
+
+  if (!hasFDI) {
+    return { left: String(teethStr), right: '', hasFDI: false };
+  }
+
+  q1.sort((a, b) => b.localeCompare(a));
+  q4.sort((a, b) => b.localeCompare(a));
+  
+  q2.sort((a, b) => a.localeCompare(b));
+  q3.sort((a, b) => a.localeCompare(b));
+
+  const topL = q1.length ? q1.join('') : ' ';
+  const botL = q4.length ? q4.join('') : ' ';
+  const topR = q2.length ? q2.join('') : ' ';
+  const botR = q3.length ? q3.join('') : ' ';
+
+  return {
+    left: `${topL}\n${botL}`,
+    right: `${topR}\n${botR}`,
+    hasFDI: true
+  };
+}
+
 export function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any) {
   const doc = new jsPDF();
   
@@ -41,7 +85,17 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
   let totalInclusive = 0;
   
   // Prepare table data
-  const headers = ['#', 'Order Date', 'Patient', 'Product', 'Teeth #', 'Units', 'Rate /unit', 'Total Amount'];
+  const headers = [
+    { content: '#', rowSpan: 1 },
+    { content: 'Order Date', rowSpan: 1 },
+    { content: 'Patient', rowSpan: 1 },
+    { content: 'Product', rowSpan: 1 },
+    { content: 'Teeth #', colSpan: 2, styles: { halign: 'center' as const } },
+    { content: 'Units', rowSpan: 1 },
+    { content: 'Rate /unit', rowSpan: 1 },
+    { content: 'Total Amount', rowSpan: 1 }
+  ];
+
   const rows = data.map((row, idx) => {
     const total = Number(row.Total) || 0;
     totalInclusive += total;
@@ -51,24 +105,44 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
       return foundKey ? row[foundKey] : undefined;
     };
 
+    const toothParsed = parsePalmerNotation(getVal(['tooth no', 'tooth no.']));
+
     return [
       String(idx + 1),
       getVal(['received date']) || '-',
       (getVal(['patient name']) || '-').substring(0, 18),
       (getVal(['work material']) || '-').substring(0, 22),
-      getVal(['tooth no', 'tooth no.']) || '-',
+      toothParsed.left,
+      toothParsed.right,
       String(getVal(['units']) || 0),
       Number(row['Rate']).toFixed(2),
-      total.toFixed(2)
+      total.toFixed(2),
+      toothParsed.hasFDI
     ];
   });
 
   autoTable(doc, {
-    head: [headers],
+    head: [headers as any],
     body: rows,
     startY: 80,
     theme: 'grid',
     headStyles: { fillColor: [13, 24, 38], textColor: [255, 255, 255] },
+    columnStyles: {
+      4: { halign: 'right' as const, cellPadding: { top: 2, bottom: 2, left: 1, right: 1 }, minCellWidth: 15 },
+      5: { halign: 'left' as const, cellPadding: { top: 2, bottom: 2, left: 1, right: 1 }, minCellWidth: 15 }
+    },
+    didDrawCell: function(data) {
+      if (data.section === 'body') {
+        const rawRow = data.row.raw as any[];
+        const hasFDI = rawRow[9];
+        if (hasFDI && (data.column.index === 4 || data.column.index === 5)) {
+          doc.setDrawColor(200, 200, 200); // lighter line for the inner cross
+          doc.setLineWidth(0.1);
+          const midY = data.cell.y + (data.cell.height / 2);
+          doc.line(data.cell.x, midY, data.cell.x + data.cell.width, midY);
+        }
+      }
+    }
   });
 
   const finalY = (doc as any).lastAutoTable.finalY + 10;
