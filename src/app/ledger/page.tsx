@@ -11,6 +11,8 @@ export default function LedgerPage() {
   const [selectedDocId, setSelectedDocId] = useState<string>('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [isSendingWA, setIsSendingWA] = useState(false);
+  const [materialName, setMaterialName] = useState('');
+  const [materialRate, setMaterialRate] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -75,6 +77,37 @@ export default function LedgerPage() {
     
     alert(`Recorded payment of ₹${paymentAmount} for ${selectedDocId}`);
     setPaymentAmount('');
+  };
+
+  const savePrice = async () => {
+    if (!materialName.trim() || !materialRate || isNaN(Number(materialRate))) return;
+    
+    const matName = materialName.trim();
+    const rate = Number(materialRate);
+    
+    const updatedPrices = { ...(selectedDoc.prices || {}), [matName]: rate };
+    
+    // Optimistic
+    setDoctors({
+      ...doctors,
+      [selectedDocId]: { ...selectedDoc, prices: updatedPrices }
+    });
+    
+    await writeData(`doctors/${selectedDocId}/prices`, updatedPrices);
+    setMaterialName('');
+    setMaterialRate('');
+  };
+
+  const deletePrice = async (matName: string) => {
+    const updatedPrices = { ...(selectedDoc.prices || {}) };
+    delete updatedPrices[matName];
+    
+    setDoctors({
+      ...doctors,
+      [selectedDocId]: { ...selectedDoc, prices: updatedPrices }
+    });
+    
+    await writeData(`doctors/${selectedDocId}/prices`, updatedPrices);
   };
 
   return (
@@ -146,13 +179,14 @@ export default function LedgerPage() {
               </div>
             </div>
 
-            {/* Payment row */}
-            <div className="grid grid-cols-1 gap-6">
-              <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+            {/* Payment and Pricing Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Payment Card */}
+              <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[280px] flex flex-col">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <DollarSign size={18} className="text-accent" /> Record Payment
                 </h3>
-                <div className="flex gap-3">
+                <div className="flex gap-3 mb-4">
                   <div className="relative flex-1">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50">₹</span>
                     <input 
@@ -167,8 +201,61 @@ export default function LedgerPage() {
                     onClick={recordPayment}
                     className="px-6 py-2.5 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.3)] whitespace-nowrap"
                   >
-                    Record Payment
+                    Record
                   </button>
+                </div>
+                <p className="text-sm text-foreground/60">Enter a manual payment received from the doctor to update their current ledger balance.</p>
+              </div>
+
+              {/* Custom Pricing Card */}
+              <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[280px] flex flex-col">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <FileText size={18} className="text-accent" /> Custom Pricing
+                </h3>
+                <div className="flex gap-3 mb-4">
+                  <input 
+                    type="text" 
+                    placeholder="Material (e.g. Zirconia)"
+                    value={materialName}
+                    onChange={(e) => setMaterialName(e.target.value)}
+                    className="flex-1 bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                  />
+                  <div className="relative w-24">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 text-sm">₹</span>
+                    <input 
+                      type="number" 
+                      placeholder="Rate"
+                      value={materialRate}
+                      onChange={(e) => setMaterialRate(e.target.value)}
+                      className="w-full bg-black/40 border border-panel-border rounded-lg pl-7 pr-2 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                    />
+                  </div>
+                  <button 
+                    onClick={savePrice}
+                    className="px-4 py-2 bg-accent/20 text-accent font-semibold rounded-lg hover:bg-accent/30 transition-all text-sm whitespace-nowrap"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto border border-panel-border rounded-lg bg-black/20 p-2 space-y-1 custom-scrollbar">
+                  {Object.entries(selectedDoc.prices || {}).map(([mat, rate]) => (
+                    <div key={mat} className="flex items-center justify-between px-3 py-2 bg-black/30 rounded-md">
+                      <span className="text-sm font-medium text-white">{mat}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-accent font-bold">₹{String(rate)}</span>
+                        <button 
+                           onClick={() => deletePrice(mat)}
+                           className="text-red-400 hover:text-red-300 text-xs font-bold px-2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {Object.keys(selectedDoc.prices || {}).length === 0 && (
+                    <div className="text-center text-sm text-foreground/50 py-4">No custom prices set</div>
+                  )}
                 </div>
               </div>
             </div>
