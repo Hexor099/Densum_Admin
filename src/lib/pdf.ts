@@ -45,13 +45,19 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
   const rows = data.map((row, idx) => {
     const total = Number(row.Total) || 0;
     totalInclusive += total;
+
+    const getVal = (possibleKeys: string[]) => {
+      const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
+      return foundKey ? row[foundKey] : undefined;
+    };
+
     return [
       String(idx + 1),
-      row['Received Date'] || '-',
-      (row['Patient Name'] || '-').substring(0, 18),
-      (row['Work material'] || '-').substring(0, 22),
-      row['Tooth No.'] || '-',
-      String(row['Units'] || 0),
+      getVal(['received date']) || '-',
+      (getVal(['patient name']) || '-').substring(0, 18),
+      (getVal(['work material']) || '-').substring(0, 22),
+      getVal(['tooth no', 'tooth no.']) || '-',
+      String(getVal(['units']) || 0),
       Number(row['Rate']).toFixed(2),
       total.toFixed(2)
     ];

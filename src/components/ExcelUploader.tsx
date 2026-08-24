@@ -130,8 +130,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     const enhanced: Record<string, any[]> = {};
     for (const sheet of Object.keys(allSheetsData)) {
       enhanced[sheet] = allSheetsData[sheet].map(row => {
-        const units = Number(row['Units']) || 0;
-        const material = String(row['Work material'] || '').trim();
+        const getVal = (possibleKeys: string[]) => {
+          const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
+          return foundKey ? row[foundKey] : undefined;
+        };
+
+        const units = Number(getVal(['units'])) || 0;
+        const material = String(getVal(['work material']) || '').trim();
         const docPrices = doctorsData[sheet]?.prices || {};
         const rate = Number(docPrices[material]) || 0;
         const totalAmount = units * rate;

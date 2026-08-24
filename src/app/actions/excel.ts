@@ -39,7 +39,17 @@ export async function syncExcelData(formData: FormData) {
         });
       }
       
-      const json = xlsx.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'dd-mm-yyyy' });
+      const rawJson = xlsx.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'dd-mm-yyyy' });
+      
+      const json = rawJson.map((row: any) => {
+        const newRow: any = {};
+        for (const key in row) {
+          const safeKey = key.replace(/\./g, '').replace(/[#$\[\]]/g, '');
+          newRow[safeKey] = row[key];
+        }
+        return newRow;
+      });
+      
       sheetsData[sheetName] = json;
     }
 
