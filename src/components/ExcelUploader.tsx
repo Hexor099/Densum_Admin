@@ -157,36 +157,50 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const getMonthYear = (dateString: string) => {
     if (!dateString || typeof dateString !== 'string') return 'Unknown';
     const str = dateString.trim();
-    // Try matching dd-mm-yyyy or dd/mm/yyyy
-    const parts = str.split(/[-/]/);
-    if (parts.length === 3) {
-      let day = parseInt(parts[0], 10);
-      let month = parseInt(parts[1], 10);
-      let year = parseInt(parts[2], 10);
-      if (year < 100) year += 2000;
-      if (!isNaN(day) && !isNaN(month) && !isNaN(year) && month >= 1 && month <= 12) {
-        const d = new Date(year, month - 1, day);
-        return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    
+    // Check if it's formatted by xlsx as dd-mm-yyyy (it will have dashes)
+    if (str.includes('-')) {
+      const parts = str.split('-');
+      if (parts.length === 3) {
+        let day = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10);
+        let year = parseInt(parts[2], 10);
+        if (year < 100) year += 2000;
+        
+        if (!isNaN(day) && !isNaN(month) && !isNaN(year) && month >= 1 && month <= 12) {
+          if (day > 31) {
+             // It's probably YYYY-MM-DD
+             const d = new Date(str);
+             if (!isNaN(d.getTime())) return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+          } else {
+            const d = new Date(year, month - 1, day);
+            return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+          }
+        }
       }
     }
-    // Try matching yyyy-mm-dd
+
+    // Fallback to standard JS Date parsing for slashes (like 8/10/26) or standard strings
     const d = new Date(str);
     if (!isNaN(d.getTime())) {
       return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
     }
+    
     return 'Unknown';
   };
 
-  // Get available months across all data or current sheet
+  // Get available months across all data
   const availableMonths = Array.from(new Set(
-    (enhancedData || []).map(row => {
-      const getVal = (possibleKeys: string[]) => {
-        const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
-        return foundKey ? row[foundKey] : undefined;
-      };
-      const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
-      return getMonthYear(dateVal);
-    })
+    Object.values(allEnhancedData || {}).flatMap(sheetData => 
+      (sheetData || []).map(row => {
+        const getVal = (possibleKeys: string[]) => {
+          const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
+          return foundKey ? row[foundKey] : undefined;
+        };
+        const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
+        return getMonthYear(dateVal);
+      })
+    )
   )).filter(m => m !== 'Unknown');
 
   // Sort months properly (basic string sort or date sort)
@@ -196,7 +210,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const filteredData = enhancedData ? enhancedData.filter(row => {
     if (selectedMonth === 'All') return true;
     const getVal = (possibleKeys: string[]) => {
-      const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
+      const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
       return foundKey ? row[foundKey] : undefined;
     };
     const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
@@ -256,7 +270,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       if (selectedMonth !== 'All') {
         sheetData = sheetData.filter(row => {
           const getVal = (possibleKeys: string[]) => {
-            const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
+            const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
             return foundKey ? row[foundKey] : undefined;
           };
           const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
