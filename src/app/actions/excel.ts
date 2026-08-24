@@ -16,6 +16,23 @@ export async function syncExcelData(formData: FormData) {
     
     for (const sheetName of workbook.SheetNames) {
       const worksheet = workbook.Sheets[sheetName];
+      
+      if (worksheet['!ref']) {
+        const range = xlsx.utils.decode_range(worksheet['!ref']);
+        // Limit reading to column G (index 6)
+        if (range.e.c > 6) {
+          range.e.c = 6;
+        }
+        worksheet['!ref'] = xlsx.utils.encode_range(range);
+
+        // Skip column F (FITTED, etc.) by deleting its cells from the worksheet
+        Object.keys(worksheet).forEach(key => {
+          if (key.match(/^F\d+$/)) {
+            delete worksheet[key];
+          }
+        });
+      }
+      
       const json = xlsx.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'dd-mm-yyyy' });
       sheetsData[sheetName] = json;
     }
