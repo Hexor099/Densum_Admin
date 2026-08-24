@@ -90,7 +90,7 @@ export default function InventoryPage() {
                         <td className="px-6 py-4 whitespace-nowrap font-mono text-foreground/70">{item.id}</td>
                         <td className="px-6 py-4 font-medium text-white flex items-center gap-2">
                           {item.name || '-'}
-                          {isLow && <AlertTriangle size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(248,113,113,0.8)]" title="Low Stock!" />}
+                          {isLow && <span title="Low Stock!"><AlertTriangle size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(248,113,113,0.8)]" /></span>}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className={`inline-block px-3 py-1 rounded-lg font-bold ${isLow ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-accent/10 text-accent-glow border border-accent/20'}`}>
