@@ -93,10 +93,11 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     if (!allSheetsData) return;
     setIsSyncing(true);
     try {
-      await writeData('excelData', allSheetsData);
+      const res = await writeData('excelData', allSheetsData);
+      if (!res.success) throw new Error("Failed to write to database. It might be too large or contain invalid characters.");
       alert("Excel data successfully saved to the cloud! It will now load automatically on any PC.");
-    } catch (err) {
-      alert("Failed to save to cloud.");
+    } catch (err: any) {
+      alert("Failed to save to cloud: " + (err.message || "Unknown error"));
     } finally {
       setIsSyncing(false);
     }

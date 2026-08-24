@@ -14,8 +14,14 @@ export async function syncExcelData(formData: FormData) {
     
     const sheetsData: Record<string, any[]> = {};
     
-    for (const sheetName of workbook.SheetNames) {
-      const worksheet = workbook.Sheets[sheetName];
+    const sanitizedSheetNames: string[] = [];
+    
+    for (const rawSheetName of workbook.SheetNames) {
+      // Firebase keys cannot contain . # $ [ ]
+      const sheetName = rawSheetName.replace(/\./g, ' ').replace(/[#$\[\]]/g, '');
+      sanitizedSheetNames.push(sheetName);
+
+      const worksheet = workbook.Sheets[rawSheetName];
       
       if (worksheet['!ref']) {
         const range = xlsx.utils.decode_range(worksheet['!ref']);
@@ -40,7 +46,7 @@ export async function syncExcelData(formData: FormData) {
     // Deep clone to ensure plain objects are passed to Client Components
     const plainSheetsData = JSON.parse(JSON.stringify(sheetsData));
 
-    return { success: true, data: plainSheetsData, sheetNames: workbook.SheetNames };
+    return { success: true, data: plainSheetsData, sheetNames: sanitizedSheetNames };
   } catch (error: any) {
     console.error("Error reading Excel file:", error);
     return { success: false, error: error.message || "Failed to parse Excel data" };
