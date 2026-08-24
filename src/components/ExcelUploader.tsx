@@ -6,7 +6,11 @@ import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
 import { fetchData } from '@/lib/firebase';
 
-export function ExcelUploader() {
+export interface ExcelUploaderProps {
+  onDataProcessed?: (data: Record<string, any[]>) => void;
+}
+
+export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const [allSheetsData, setAllSheetsData] = useState<Record<string, any[]> | null>(null);
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [currentSheet, setCurrentSheet] = useState<string>('');
@@ -62,18 +66,29 @@ export function ExcelUploader() {
     }
   };
 
-  const currentData = allSheetsData && currentSheet ? allSheetsData[currentSheet] : null;
+  const [allEnhancedData, setAllEnhancedData] = useState<Record<string, any[]>>({});
 
-  // Enhance data with calculated totals based on doctor prices
-  const enhancedData = currentData?.map(row => {
-    const units = Number(row['Units']) || 0;
-    const material = String(row['Work material'] || '').trim();
-    const docPrices = doctorsData[currentSheet]?.prices || {};
-    const rate = Number(docPrices[material]) || 0;
-    const totalAmount = units * rate;
-    
-    return { ...row, Rate: rate, Total: totalAmount };
-  });
+  useEffect(() => {
+    if (!allSheetsData) return;
+    const enhanced: Record<string, any[]> = {};
+    for (const sheet of Object.keys(allSheetsData)) {
+      enhanced[sheet] = allSheetsData[sheet].map(row => {
+        const units = Number(row['Units']) || 0;
+        const material = String(row['Work material'] || '').trim();
+        const docPrices = doctorsData[sheet]?.prices || {};
+        const rate = Number(docPrices[material]) || 0;
+        const totalAmount = units * rate;
+        return { ...row, Rate: rate, Total: totalAmount };
+      });
+    }
+    setAllEnhancedData(enhanced);
+    if (onDataProcessed) {
+      onDataProcessed(enhanced);
+    }
+  }, [allSheetsData, doctorsData]);
+
+  const currentData = allSheetsData && currentSheet ? allSheetsData[currentSheet] : null;
+  const enhancedData = currentSheet ? allEnhancedData[currentSheet] : null;
 
   const handleGeneratePDF = () => {
     if (enhancedData && currentSheet) {

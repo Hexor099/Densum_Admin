@@ -1,8 +1,11 @@
 "use client";
 
+import { useState, useMemo, useEffect } from 'react';
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -10,40 +13,222 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const data = [
-  { name: 'Mon', revenue: 4000 },
-  { name: 'Tue', revenue: 3000 },
-  { name: 'Wed', revenue: 5000 },
-  { name: 'Thu', revenue: 2780 },
-  { name: 'Fri', revenue: 6890 },
-  { name: 'Sat', revenue: 2390 },
-  { name: 'Sun', revenue: 3490 },
-];
+interface DashboardChartsProps {
+  data?: Record<string, any[]> | null;
+}
 
-export function DashboardCharts() {
+export function DashboardCharts({ data }: DashboardChartsProps) {
+  const [selectedDoc, setSelectedDoc] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartType, setChartType] = useState<'line' | 'bar'>('line');
+
+  // Helper to extract date safely from any row
+  const extractDate = (row: any): Date | null => {
+    const dateKey = Object.keys(row).find(k => k.toLowerCase().includes('date'));
+    if (!dateKey || !row[dateKey]) return null;
+    const d = new Date(row[dateKey]);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  // Compute all available doctors and months from the dataset
+  const { doctors, months } = useMemo(() => {
+    if (!data) return { doctors: [], months: [] };
+    const docs = Object.keys(data);
+    const mSet = new Set<string>();
+
+    docs.forEach(doc => {
+      data[doc].forEach(row => {
+        const d = extractDate(row);
+        if (d) {
+          const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+          mSet.add(mStr);
+        }
+      });
+    });
+
+    return { doctors: docs, months: Array.from(mSet).sort() };
+  }, [data]);
+
+  const handleUpdateChart = () => {
+    if (!data) return;
+
+    let newChartData: any[] = [];
+    
+    // 1. Doctor selected, NO month selected -> Show month-wise revenue for this doctor
+    if (selectedDoc && !selectedMonth) {
+      const docData = data[selectedDoc] || [];
+      const monthMap: Record<string, number> = {};
+      
+      docData.forEach(row => {
+        const d = extractDate(row);
+        if (d) {
+          const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+          monthMap[mStr] = (monthMap[mStr] || 0) + (Number(row.Total) || 0);
+        }
+      });
+
+      newChartData = Object.keys(monthMap).map(m => ({
+        name: m,
+        revenue: monthMap[m]
+      }));
+      setChartType('line');
+    }
+    // 2. Month selected, NO doctor selected -> Show doctor-wise revenue for this month
+    else if (!selectedDoc && selectedMonth) {
+      const docMap: Record<string, number> = {};
+      
+      Object.keys(data).forEach(doc => {
+        const docRows = data[doc] || [];
+        docRows.forEach(row => {
+          const d = extractDate(row);
+          if (d) {
+            const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+            if (mStr === selectedMonth) {
+              docMap[doc] = (docMap[doc] || 0) + (Number(row.Total) || 0);
+            }
+          }
+        });
+      });
+
+      newChartData = Object.keys(docMap).map(d => ({
+        name: d,
+        revenue: docMap[d]
+      }));
+      setChartType('bar');
+    }
+    // 3. Both selected -> Show daily revenue for this doctor in this month
+    else if (selectedDoc && selectedMonth) {
+      const docData = data[selectedDoc] || [];
+      const dayMap: Record<string, number> = {};
+      
+      docData.forEach(row => {
+        const d = extractDate(row);
+        if (d) {
+          const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+          if (mStr === selectedMonth) {
+            const dayStr = d.getDate().toString();
+            dayMap[dayStr] = (dayMap[dayStr] || 0) + (Number(row.Total) || 0);
+          }
+        }
+      });
+
+      newChartData = Object.keys(dayMap).sort((a,b) => Number(a) - Number(b)).map(day => ({
+        name: `${day} ${selectedMonth.split(' ')[0]}`,
+        revenue: dayMap[day]
+      }));
+      setChartType('line');
+    }
+    // 4. Neither selected -> Show overall revenue month-wise for all doctors
+    else {
+      const monthMap: Record<string, number> = {};
+      Object.keys(data).forEach(doc => {
+        data[doc].forEach(row => {
+          const d = extractDate(row);
+          if (d) {
+            const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+            monthMap[mStr] = (monthMap[mStr] || 0) + (Number(row.Total) || 0);
+          }
+        });
+      });
+      newChartData = Object.keys(monthMap).map(m => ({
+        name: m,
+        revenue: monthMap[m]
+      }));
+      setChartType('line');
+    }
+
+    setChartData(newChartData);
+  };
+
+  // Default empty state
+  if (!data) {
+    return (
+      <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[400px] flex items-center justify-center text-foreground/50">
+        Upload Excel data to view analytics.
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[400px] flex flex-col">
-      <h2 className="text-xl font-bold mb-6 text-white">Live Revenue Analytics</h2>
-      <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-            <XAxis dataKey="name" stroke="#64748b" tick={{ fill: '#64748b' }} />
-            <YAxis stroke="#64748b" tick={{ fill: '#64748b' }} />
-            <Tooltip 
-              contentStyle={{ backgroundColor: '#0d1826', borderColor: '#1e293b', color: '#fff', borderRadius: '8px' }}
-              itemStyle={{ color: '#00a8e8' }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="revenue" 
-              stroke="#00a8e8" 
-              strokeWidth={3}
-              activeDot={{ r: 8, fill: '#00c2ff', stroke: '#0d1826', strokeWidth: 2 }}
-              style={{ filter: 'drop-shadow(0px 0px 8px rgba(0,194,255,0.5))' }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+    <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[450px] flex flex-col">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+        <h2 className="text-xl font-bold text-white">Revenue Analytics</h2>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <select 
+            className="bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+            value={selectedDoc}
+            onChange={(e) => setSelectedDoc(e.target.value)}
+          >
+            <option value="">All Doctors</option>
+            {doctors.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          
+          <select 
+            className="bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+          >
+            <option value="">All Months</option>
+            {months.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+
+          <button 
+            onClick={handleUpdateChart}
+            className="px-4 py-2 bg-accent/10 border border-accent/20 text-accent font-semibold rounded-lg hover:bg-accent/20 transition-all text-sm shadow-[0_0_10px_rgba(0,194,255,0.2)]"
+          >
+            Update Chart
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 relative">
+        {chartData.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center text-foreground/50 text-sm">
+            Click "Update Chart" to load data or adjust filters.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === 'line' ? (
+              <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="name" stroke="#64748b" tick={{ fill: '#64748b' }} />
+                <YAxis stroke="#64748b" tick={{ fill: '#64748b' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0d1826', borderColor: '#1e293b', color: '#fff', borderRadius: '8px' }}
+                  itemStyle={{ color: '#00a8e8' }}
+                  formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Revenue']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#00a8e8" 
+                  strokeWidth={3}
+                  activeDot={{ r: 8, fill: '#00c2ff', stroke: '#0d1826', strokeWidth: 2 }}
+                  style={{ filter: 'drop-shadow(0px 0px 8px rgba(0,194,255,0.5))' }}
+                />
+              </LineChart>
+            ) : (
+              <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="name" stroke="#64748b" tick={{ fill: '#64748b' }} />
+                <YAxis stroke="#64748b" tick={{ fill: '#64748b' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0d1826', borderColor: '#1e293b', color: '#fff', borderRadius: '8px' }}
+                  itemStyle={{ color: '#4ade80' }}
+                  formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Revenue']}
+                />
+                <Bar 
+                  dataKey="revenue" 
+                  fill="#4ade80" 
+                  radius={[4, 4, 0, 0]}
+                  style={{ filter: 'drop-shadow(0px 0px 8px rgba(74,222,128,0.5))' }}
+                />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
