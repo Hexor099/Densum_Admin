@@ -31,23 +31,40 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
     return isNaN(d.getTime()) ? null : d;
   };
 
-  // Compute all available doctors and months from the dataset
+  // Compute all available doctors and a chronological list of months
   const { doctors, months } = useMemo(() => {
     if (!data) return { doctors: [], months: [] };
     const docs = Object.keys(data);
-    const mSet = new Set<string>();
+    
+    let minDate: Date | null = null;
+    let maxDate = new Date(); // Up to current date
 
     docs.forEach(doc => {
       data[doc].forEach(row => {
         const d = extractDate(row);
         if (d) {
-          const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
-          mSet.add(mStr);
+          if (!minDate || d < minDate) minDate = new Date(d);
+          if (d > maxDate) maxDate = new Date(d);
         }
       });
     });
 
-    return { doctors: docs, months: Array.from(mSet).sort() };
+    // Start from January of the earliest year found, or current year if no data
+    if (!minDate) {
+      minDate = new Date(new Date().getFullYear(), 0, 1);
+    } else {
+      minDate = new Date((minDate as Date).getFullYear(), 0, 1);
+    }
+
+    const allMonths: string[] = [];
+    let curr = new Date(minDate);
+    // Generate up to maxDate month
+    while (curr.getFullYear() < maxDate.getFullYear() || (curr.getFullYear() === maxDate.getFullYear() && curr.getMonth() <= maxDate.getMonth())) {
+      allMonths.push(curr.toLocaleString('default', { month: 'short', year: 'numeric' }));
+      curr.setMonth(curr.getMonth() + 1);
+    }
+
+    return { doctors: docs, months: allMonths };
   }, [data]);
 
   const handleUpdateChart = () => {
@@ -68,9 +85,9 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
         }
       });
 
-      newChartData = Object.keys(monthMap).map(m => ({
+      newChartData = months.map(m => ({
         name: m,
-        revenue: monthMap[m]
+        revenue: monthMap[m] || 0
       }));
       setChartType('line');
     }
@@ -131,9 +148,9 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
           }
         });
       });
-      newChartData = Object.keys(monthMap).map(m => ({
+      newChartData = months.map(m => ({
         name: m,
-        revenue: monthMap[m]
+        revenue: monthMap[m] || 0
       }));
       setChartType('line');
     }
