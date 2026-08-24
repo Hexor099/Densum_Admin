@@ -13,16 +13,34 @@ export default function LedgerPage() {
   const [isSendingWA, setIsSendingWA] = useState(false);
   const [materialName, setMaterialName] = useState('');
   const [materialRate, setMaterialRate] = useState('');
+  const [uniqueMaterials, setUniqueMaterials] = useState<string[]>([]);
 
   useEffect(() => {
     async function loadData() {
       const docs = await fetchData('doctors');
       const ldgr = await fetchData('ledger');
+      const excel = await fetchData('excelData');
+      
       if (docs) {
         setDoctors(docs);
         if (Object.keys(docs).length > 0) setSelectedDocId(Object.keys(docs)[0]);
       }
       if (ldgr) setLedger(ldgr);
+
+      if (excel) {
+        const materials = new Set<string>();
+        Object.values(excel).forEach((rows: any) => {
+          if (Array.isArray(rows)) {
+            rows.forEach(row => {
+              const foundKey = Object.keys(row).find(k => k.toLowerCase() === 'work material');
+              if (foundKey && row[foundKey]) {
+                materials.add(String(row[foundKey]).trim());
+              }
+            });
+          }
+        });
+        setUniqueMaterials(Array.from(materials).sort());
+      }
     }
     loadData();
   }, []);
@@ -213,13 +231,19 @@ export default function LedgerPage() {
                   <FileText size={18} className="text-accent" /> Custom Pricing
                 </h3>
                 <div className="flex gap-3 mb-4">
-                  <input 
-                    type="text" 
-                    placeholder="Material (e.g. Zirconia)"
+                  <select 
                     value={materialName}
                     onChange={(e) => setMaterialName(e.target.value)}
-                    className="flex-1 bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
-                  />
+                    className="flex-1 bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm custom-scrollbar appearance-none"
+                  >
+                    <option value="" disabled>Select Material...</option>
+                    {uniqueMaterials.map(mat => (
+                      <option key={mat} value={mat}>{mat}</option>
+                    ))}
+                    {uniqueMaterials.length === 0 && (
+                      <option value="" disabled>Upload Excel to load materials</option>
+                    )}
+                  </select>
                   <div className="relative w-24">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 text-sm">₹</span>
                     <input 
