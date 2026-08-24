@@ -14,6 +14,8 @@ export default function LedgerPage() {
   const [materialName, setMaterialName] = useState('');
   const [materialRate, setMaterialRate] = useState('');
   const [uniqueMaterials, setUniqueMaterials] = useState<string[]>([]);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -70,20 +72,23 @@ export default function LedgerPage() {
     }
   };
 
-  const recordPayment = async () => {
+  const recordTransaction = async (type: 'Payment' | 'Bill') => {
     if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) return;
     
     const amount = Number(paymentAmount);
+    // If Payment, amount is negative (reduces balance). If Bill, amount is positive (increases balance).
+    const txAmount = type === 'Payment' ? -amount : amount;
+    
     const newTransaction = {
       id: Date.now(),
       date: new Date().toISOString().split('T')[0],
-      type: 'Payment',
-      amount: -amount,
-      description: 'Manual Payment Received'
+      type: type,
+      amount: txAmount,
+      description: type === 'Payment' ? 'Manual Payment Received' : 'Manual Bill / Invoice'
     };
 
     const updatedTransactions = [...transactions, newTransaction];
-    const newBalance = (Number(selectedDoc.balance) || 0) - amount;
+    const newBalance = (Number(selectedDoc.balance) || 0) + txAmount;
 
     // Optimistic update
     setLedger({ ...ledger, [selectedDocId]: updatedTransactions });
@@ -93,8 +98,15 @@ export default function LedgerPage() {
     await writeData(`ledger/${selectedDocId}`, updatedTransactions);
     await writeData(`doctors/${selectedDocId}/balance`, newBalance);
     
-    alert(`Recorded payment of ₹${paymentAmount} for ${selectedDocId}`);
+    alert(`Recorded ${type} of ₹${amount} for ${selectedDocId}`);
     setPaymentAmount('');
+  };
+
+  const savePhone = async () => {
+    const updatedDoc = { ...selectedDoc, phone: phoneInput };
+    setDoctors({ ...doctors, [selectedDocId]: updatedDoc });
+    await writeData(`doctors/${selectedDocId}/phone`, phoneInput);
+    setIsEditingPhone(false);
   };
 
   const savePrice = async () => {
@@ -175,7 +187,25 @@ export default function LedgerPage() {
             <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-white">{selectedDocId}</h2>
-                <p className="text-foreground/60">{selectedDoc.phone || 'No phone added'}</p>
+                {isEditingPhone ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input 
+                      value={phoneInput} 
+                      onChange={e => setPhoneInput(e.target.value)} 
+                      placeholder="Enter phone..."
+                      className="bg-black/40 border border-panel-border rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-accent"
+                    />
+                    <button onClick={savePhone} className="text-accent text-sm font-semibold hover:underline">Save</button>
+                    <button onClick={() => setIsEditingPhone(false)} className="text-foreground/50 text-sm hover:underline">Cancel</button>
+                  </div>
+                ) : (
+                  <p className="text-foreground/60 flex items-center gap-3 mt-1">
+                    {selectedDoc.phone || 'No phone added'}
+                    <button onClick={() => { setIsEditingPhone(true); setPhoneInput(selectedDoc.phone || ''); }} className="text-accent/80 hover:text-accent text-xs font-semibold uppercase tracking-wider">
+                      Edit
+                    </button>
+                  </p>
+                )}
               </div>
               
               <div className="flex items-center gap-4">
@@ -199,10 +229,10 @@ export default function LedgerPage() {
 
             {/* Payment and Pricing Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Payment Card */}
+              {/* Transaction Card */}
               <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[280px] flex flex-col">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <DollarSign size={18} className="text-accent" /> Record Payment
+                  <DollarSign size={18} className="text-accent" /> Manual Ledger Entry
                 </h3>
                 <div className="flex gap-3 mb-4">
                   <div className="relative flex-1">
@@ -215,14 +245,22 @@ export default function LedgerPage() {
                       className="w-full bg-black/40 border border-panel-border rounded-lg pl-8 pr-4 py-2.5 text-white focus:outline-none focus:border-accent transition-colors"
                     />
                   </div>
+                </div>
+                <div className="flex gap-3">
                   <button 
-                    onClick={recordPayment}
-                    className="px-6 py-2.5 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.3)] whitespace-nowrap"
+                    onClick={() => recordTransaction('Payment')}
+                    className="flex-1 px-4 py-2.5 bg-green-500/20 text-green-400 font-bold rounded-lg hover:bg-green-500/30 transition-all shadow-sm border border-green-500/30"
                   >
-                    Record
+                    Receive Payment
+                  </button>
+                  <button 
+                    onClick={() => recordTransaction('Bill')}
+                    className="flex-1 px-4 py-2.5 bg-red-500/20 text-red-400 font-bold rounded-lg hover:bg-red-500/30 transition-all shadow-sm border border-red-500/30"
+                  >
+                    Add Bill
                   </button>
                 </div>
-                <p className="text-sm text-foreground/60">Enter a manual payment received from the doctor to update their current ledger balance.</p>
+                <p className="text-sm text-foreground/60 mt-4">Enter a manual amount. "Receive Payment" lowers the balance. "Add Bill" increases the balance.</p>
               </div>
 
               {/* Custom Pricing Card */}
