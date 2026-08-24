@@ -25,9 +25,9 @@ export async function syncExcelData(formData: FormData) {
         }
         worksheet['!ref'] = xlsx.utils.encode_range(range);
 
-        // Skip column F (FITTED, etc.) by deleting its cells from the worksheet
+        // Skip column B (DELIVERED DATE) and column F (FITTED) by deleting their cells
         Object.keys(worksheet).forEach(key => {
-          if (key.match(/^F\d+$/)) {
+          if (key.match(/^[BF]\d+$/)) {
             delete worksheet[key];
           }
         });
