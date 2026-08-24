@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2, CloudUpload } from 'lucide-react';
+import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2, CloudUpload, CloudDownload } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
 import { fetchData, writeData } from '@/lib/firebase';
@@ -102,6 +102,26 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     }
   };
 
+  const handleLoadFromCloud = async () => {
+    setIsSyncing(true);
+    try {
+      const cloudData = await fetchData('excelData');
+      if (cloudData) {
+        setAllSheetsData(cloudData);
+        const sheets = Object.keys(cloudData);
+        setSheetNames(sheets);
+        if (sheets.length > 0) setCurrentSheet(sheets[0]);
+        alert("Data successfully loaded from the cloud!");
+      } else {
+        alert("No data found in the cloud.");
+      }
+    } catch (err) {
+      alert("Failed to load from cloud.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const [allEnhancedData, setAllEnhancedData] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
@@ -195,6 +215,15 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           >
             <CloudUpload size={18} />
             Save to Cloud
+          </button>
+          <button 
+            onClick={handleLoadFromCloud}
+            disabled={isSyncing}
+            className="px-5 py-2.5 bg-blue-500/20 text-blue-400 font-medium rounded-lg hover:bg-blue-500/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Load data from Firebase cloud"
+          >
+            <CloudDownload size={18} />
+            Load from Cloud
           </button>
         </div>
       </div>
