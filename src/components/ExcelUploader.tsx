@@ -19,6 +19,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [doctorsData, setDoctorsData] = useState<Record<string, any>>({});
   const [settings, setSettings] = useState<any>({});
+  const [selectedMonth, setSelectedMonth] = useState<string>('All');
 
   useEffect(() => {
     // Load doctor pricing and lab settings from Firebase
@@ -152,14 +153,64 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const currentData = allSheetsData && currentSheet ? allSheetsData[currentSheet] : null;
   const enhancedData = currentSheet ? allEnhancedData[currentSheet] : null;
 
+  // Helper to extract month-year from date string
+  const getMonthYear = (dateString: string) => {
+    if (!dateString || typeof dateString !== 'string') return 'Unknown';
+    const str = dateString.trim();
+    // Try matching dd-mm-yyyy or dd/mm/yyyy
+    const parts = str.split(/[-/]/);
+    if (parts.length === 3) {
+      let day = parseInt(parts[0], 10);
+      let month = parseInt(parts[1], 10);
+      let year = parseInt(parts[2], 10);
+      if (year < 100) year += 2000;
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year) && month >= 1 && month <= 12) {
+        const d = new Date(year, month - 1, day);
+        return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      }
+    }
+    // Try matching yyyy-mm-dd
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    }
+    return 'Unknown';
+  };
+
+  // Get available months across all data or current sheet
+  const availableMonths = Array.from(new Set(
+    (enhancedData || []).map(row => {
+      const getVal = (possibleKeys: string[]) => {
+        const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
+        return foundKey ? row[foundKey] : undefined;
+      };
+      const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
+      return getMonthYear(dateVal);
+    })
+  )).filter(m => m !== 'Unknown');
+
+  // Sort months properly (basic string sort or date sort)
+  availableMonths.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+  // Filter data based on selected month
+  const filteredData = enhancedData ? enhancedData.filter(row => {
+    if (selectedMonth === 'All') return true;
+    const getVal = (possibleKeys: string[]) => {
+      const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
+      return foundKey ? row[foundKey] : undefined;
+    };
+    const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
+    return getMonthYear(dateVal) === selectedMonth;
+  }) : null;
+
   const handleGeneratePDF = async () => {
-    if (enhancedData && currentSheet) {
+    if (filteredData && currentSheet && filteredData.length > 0) {
       const docProfile = doctorsData[currentSheet] || {};
-      generateInvoicePDF(enhancedData, currentSheet, docProfile, settings);
+      generateInvoicePDF(filteredData, currentSheet, docProfile, settings);
       
       // Auto-update ledger
       let totalInclusive = 0;
-      enhancedData.forEach((row: any) => {
+      filteredData.forEach((row: any) => {
         totalInclusive += Number(row.Total) || 0;
       });
 
@@ -198,8 +249,22 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     const newDocsData = { ...doctorsData };
 
     for (const sheet of Object.keys(allEnhancedData)) {
-      const sheetData = allEnhancedData[sheet];
+      let sheetData = allEnhancedData[sheet];
       if (!sheetData || sheetData.length === 0) continue;
+      
+      // Apply month filter
+      if (selectedMonth !== 'All') {
+        sheetData = sheetData.filter(row => {
+          const getVal = (possibleKeys: string[]) => {
+            const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
+            return foundKey ? row[foundKey] : undefined;
+          };
+          const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
+          return getMonthYear(dateVal) === selectedMonth;
+        });
+      }
+
+      if (sheetData.length === 0) continue;
       
       let totalInclusive = 0;
       sheetData.forEach((row: any) => {
@@ -299,44 +364,60 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       )}
 
       {sheetNames.length > 0 && (
-        <div className="mb-4 animate-in fade-in duration-300 relative z-20">
-          <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Search Doctor Sheet:</label>
-          <div className="relative max-w-md">
-            <svg 
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none" 
-              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input 
-              type="text" 
-              placeholder={currentSheet || "Type doctor name..."}
-              onChange={e => {
-                const q = e.target.value.toLowerCase();
-                if (!q) return;
-                // Basic fuzzy search: find first sheet that includes the text
-                const match = sheetNames.find(n => n.toLowerCase().includes(q));
-                if (match) {
-                  setCurrentSheet(match);
-                }
-              }}
-              className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-               <span className="text-xs font-semibold px-2 py-1 bg-accent/20 text-accent rounded-md">
-                 {currentSheet}
-               </span>
+        <div className="mb-4 flex flex-col md:flex-row gap-4 animate-in fade-in duration-300 relative z-20">
+          <div className="flex-1">
+            <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Search Doctor Sheet:</label>
+            <div className="relative max-w-md">
+              <svg 
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none" 
+                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input 
+                type="text" 
+                placeholder={currentSheet || "Type doctor name..."}
+                onChange={e => {
+                  const q = e.target.value.toLowerCase();
+                  if (!q) return;
+                  // Basic fuzzy search: find first sheet that includes the text
+                  const match = sheetNames.find(n => n.toLowerCase().includes(q));
+                  if (match) {
+                    setCurrentSheet(match);
+                  }
+                }}
+                className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                 <span className="text-xs font-semibold px-2 py-1 bg-accent/20 text-accent rounded-md">
+                   {currentSheet}
+                 </span>
+              </div>
             </div>
+          </div>
+          
+          <div className="w-full md:w-64">
+            <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Select Billing Month:</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm appearance-none"
+            >
+              <option value="All">All Months</option>
+              {availableMonths.map(month => (
+                <option key={month} value={month}>{month}</option>
+              ))}
+            </select>
           </div>
         </div>
       )}
 
-      {enhancedData && enhancedData.length > 0 ? (
+      {filteredData && filteredData.length > 0 ? (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center justify-between mb-4 mt-2">
             <h3 className="font-semibold text-white flex items-center gap-2">
-               Data Synced ({enhancedData.length} rows)
+               Data Synced ({filteredData.length} rows)
             </h3>
             <div className="flex gap-3">
               <button 
@@ -357,13 +438,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-foreground/60 uppercase bg-[#08101a] shadow-sm sticky top-0 z-10">
                 <tr>
-                  {Object.keys(enhancedData[0]).map(k => (
+                  {Object.keys(filteredData[0]).map(k => (
                     <th key={k} className="px-4 py-3 whitespace-nowrap">{k}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {enhancedData.map((row: any, i: number) => (
+                {filteredData.map((row: any, i: number) => (
                   <tr key={i} className="border-b border-panel-border/50 hover:bg-white/5 transition-colors">
                     {Object.values(row).map((v: any, j: number) => (
                       <td key={j} className="px-4 py-3 whitespace-nowrap">{String(v)}</td>
