@@ -189,6 +189,63 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     }
   };
 
+  const handleGenerateAll = async () => {
+    if (!allEnhancedData || Object.keys(allEnhancedData).length === 0) return;
+    
+    if (!confirm("This will generate invoices and update the ledger for ALL doctors. Continue?")) return;
+
+    let processedCount = 0;
+    const newDocsData = { ...doctorsData };
+
+    for (const sheet of Object.keys(allEnhancedData)) {
+      const sheetData = allEnhancedData[sheet];
+      if (!sheetData || sheetData.length === 0) continue;
+      
+      let totalInclusive = 0;
+      sheetData.forEach((row: any) => {
+        totalInclusive += Number(row.Total) || 0;
+      });
+
+      if (totalInclusive > 0) {
+        const docProfile = newDocsData[sheet] || {};
+        
+        // Generate PDF
+        generateInvoicePDF(sheetData, sheet, docProfile, settings);
+        
+        // Update Ledger
+        const currentLedger = await fetchData(`ledger/${sheet}`) || [];
+        const newTransaction = {
+          id: Date.now() + processedCount, // ensure unique
+          date: new Date().toISOString().split('T')[0],
+          type: 'Invoice Generated',
+          amount: totalInclusive,
+          description: `Auto-generated Invoice`
+        };
+        
+        const updatedTransactions = [...currentLedger, newTransaction];
+        await writeData(`ledger/${sheet}`, updatedTransactions);
+
+        // Update Balance
+        const currentBalance = Number(docProfile.balance) || 0;
+        const newBalance = currentBalance + totalInclusive;
+        newDocsData[sheet] = { ...docProfile, balance: newBalance };
+        await writeData(`doctors/${sheet}/balance`, newBalance);
+        
+        processedCount++;
+        
+        // Slight delay to prevent browser download blocking
+        await new Promise(res => setTimeout(res, 800));
+      }
+    }
+
+    setDoctorsData(newDocsData);
+    if (processedCount > 0) {
+      alert(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!`);
+    } else {
+      alert("No valid billable data found to generate.");
+    }
+  };
+
   return (
     <div className="bg-panel rounded-xl border border-panel-border p-6 mt-6 shadow-lg relative">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
@@ -281,12 +338,20 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             <h3 className="font-semibold text-white flex items-center gap-2">
                Data Synced ({enhancedData.length} rows)
             </h3>
-            <button 
-              onClick={handleGeneratePDF}
-              className="px-4 py-2 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)]"
-            >
-              Generate PDF
-            </button>
+            <div className="flex gap-3">
+              <button 
+                onClick={handleGenerateAll}
+                className="px-4 py-2 bg-purple-500/20 text-purple-400 font-bold rounded-lg hover:bg-purple-500/30 transition-all shadow-sm border border-purple-500/30"
+              >
+                Generate All Invoices
+              </button>
+              <button 
+                onClick={handleGeneratePDF}
+                className="px-4 py-2 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)]"
+              >
+                Generate PDF (Current)
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto max-h-[400px] border border-panel-border rounded-lg bg-black/20 custom-scrollbar">
             <table className="w-full text-sm text-left">
