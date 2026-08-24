@@ -130,10 +130,20 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
         }
       });
 
-      newChartData = Object.keys(dayMap).sort((a,b) => Number(a) - Number(b)).map(day => ({
-        name: `${day} ${selectedMonth.split(' ')[0]}`,
-        revenue: dayMap[day]
-      }));
+      const [monthName, yearStr] = selectedMonth.split(' ');
+      const yearNum = parseInt(yearStr);
+      // Create a date object for the 1st of the selected month
+      // using a safe format so we can determine how many days are in it
+      const monthIdx = new Date(Date.parse(monthName + " 1, " + yearNum)).getMonth();
+      const daysInMonth = new Date(yearNum, monthIdx + 1, 0).getDate();
+
+      newChartData = Array.from({ length: daysInMonth }, (_, i) => {
+        const dayStr = (i + 1).toString();
+        return {
+          name: `${dayStr} ${monthName}`,
+          revenue: dayMap[dayStr] || 0
+        };
+      });
       setChartType('line');
     }
     // 4. Neither selected -> Show overall revenue month-wise for all doctors
