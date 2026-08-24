@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
-import { fetchData } from '@/lib/firebase';
+import { fetchData, writeData } from '@/lib/firebase';
 
 export interface ExcelUploaderProps {
   onDataProcessed?: (data: Record<string, any[]>) => void;
@@ -53,6 +53,21 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       if (result.success) {
         setAllSheetsData(result.data);
         setSheetNames(result.sheetNames || []);
+        
+        // Auto-create missing doctors in Firebase
+        if (result.sheetNames) {
+          const updatedDocs = { ...doctorsData };
+          let changed = false;
+          for (const docName of result.sheetNames) {
+            if (!updatedDocs[docName]) {
+               updatedDocs[docName] = { balance: 0, prices: {} };
+               changed = true;
+               await writeData(`doctors/${docName}`, updatedDocs[docName]);
+            }
+          }
+          if (changed) setDoctorsData(updatedDocs);
+        }
+
         if (result.sheetNames && result.sheetNames.length > 0 && !currentSheet) {
           setCurrentSheet(result.sheetNames[0]);
         }
@@ -90,10 +105,40 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const currentData = allSheetsData && currentSheet ? allSheetsData[currentSheet] : null;
   const enhancedData = currentSheet ? allEnhancedData[currentSheet] : null;
 
-  const handleGeneratePDF = () => {
+  const handleGeneratePDF = async () => {
     if (enhancedData && currentSheet) {
       const docProfile = doctorsData[currentSheet] || {};
       generateInvoicePDF(enhancedData, currentSheet, docProfile, settings);
+      
+      // Auto-update ledger
+      let totalInclusive = 0;
+      enhancedData.forEach((row: any) => {
+        totalInclusive += Number(row.Total) || 0;
+      });
+
+      if (totalInclusive > 0) {
+        // Fetch current ledger
+        const currentLedger = await fetchData(`ledger/${currentSheet}`) || [];
+        const newTransaction = {
+          id: Date.now(),
+          date: new Date().toISOString().split('T')[0],
+          type: 'Invoice Generated',
+          amount: totalInclusive,
+          description: `Auto-generated Invoice`
+        };
+        const updatedTransactions = [...currentLedger, newTransaction];
+        await writeData(`ledger/${currentSheet}`, updatedTransactions);
+
+        // Update balance
+        const currentBalance = Number(docProfile.balance) || 0;
+        const newBalance = currentBalance + totalInclusive;
+        
+        const updatedDocProfile = { ...docProfile, balance: newBalance };
+        setDoctorsData({ ...doctorsData, [currentSheet]: updatedDocProfile });
+        await writeData(`doctors/${currentSheet}/balance`, newBalance);
+        
+        alert(`Invoice generated and ₹${totalInclusive.toFixed(2)} added to ${currentSheet}'s ledger!`);
+      }
     }
   };
 
