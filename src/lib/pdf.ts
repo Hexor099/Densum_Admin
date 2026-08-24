@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { logoBase64 } from './logoBase64';
 
 function parsePalmerNotation(teethStr: string) {
   if (!teethStr) return { left: '-', right: '', hasFDI: false };
@@ -63,22 +64,26 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
   const isInterstate = docState && labState.toLowerCase() !== docState.toLowerCase();
 
   // Header
-  doc.setFontSize(22);
-  doc.setTextColor(0, 168, 232); // Densum Accent Cyan
-  doc.text(labName, 14, 20);
+  try {
+    doc.addImage(logoBase64, 'JPEG', 14, 8, 70, 22);
+  } catch (e) {
+    doc.setFontSize(22);
+    doc.setTextColor(0, 168, 232); // Densum Accent Cyan
+    doc.text(labName, 14, 20);
+  }
   
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text('TAX INVOICE', 14, 28);
+  doc.text('TAX INVOICE', 14, 36);
 
   doc.setFontSize(9);
   doc.setTextColor(50);
-  doc.text(`${labAddress}\nState: ${labState}\nGSTIN: ${labGSTIN}`, 14, 35);
+  doc.text(`${labAddress}\nState: ${labState}\nGSTIN: ${labGSTIN}`, 14, 43);
   
   const invNo = `INV-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${settings.invoiceSequence || 1}`;
-  doc.text(`Invoice #: ${invNo}\nDate: ${new Date().toLocaleDateString()}`, 140, 35);
+  doc.text(`Invoice #: ${invNo}\nDate: ${new Date().toLocaleDateString()}`, 140, 43);
 
-  doc.text(`Billed To:\n${doctorName}\n${docAddress}\nState: ${docState} | GSTIN: ${docGSTIN}\nPhone: ${docPhone}`, 14, 55);
+  doc.text(`Billed To:\n${doctorName}\n${docAddress}\nState: ${docState} | GSTIN: ${docGSTIN}\nPhone: ${docPhone}`, 14, 63);
 
   if (!data || data.length === 0) return;
   
@@ -124,7 +129,7 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
   autoTable(doc, {
     head: [headers as any],
     body: rows,
-    startY: 80,
+    startY: 88,
     theme: 'grid',
     headStyles: { fillColor: [13, 24, 38], textColor: [255, 255, 255] },
     columnStyles: {

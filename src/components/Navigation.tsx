@@ -23,8 +23,8 @@ export function Navigation() {
 
   return (
     <nav className="w-64 bg-panel border-r border-panel-border h-screen flex flex-col fixed left-0 top-0 z-50">
-      <div className="p-6 border-b border-panel-border flex items-center justify-center">
-        <h1 className="text-2xl font-bold text-accent-glow tracking-widest drop-shadow-[0_0_10px_rgba(0,194,255,0.5)]">DENSUM</h1>
+      <div className="p-6 border-b border-panel-border flex items-center justify-center bg-white/5">
+        <img src="/logo.jpg" alt="Densum Digital Lab" className="w-full max-w-[180px] h-auto object-contain rounded drop-shadow-[0_0_15px_rgba(0,194,255,0.2)]" />
       </div>
       <div className="flex-1 py-6 flex flex-col gap-2 px-4">
         {navItems.map((item) => {
