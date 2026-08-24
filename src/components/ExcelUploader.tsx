@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2, CloudUpload } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
 import { fetchData, writeData } from '@/lib/firebase';
@@ -28,6 +28,14 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       
       const sets = await fetchData('settings');
       if (sets) setSettings(sets);
+
+      const cloudData = await fetchData('excelData');
+      if (cloudData) {
+        setAllSheetsData(cloudData);
+        const sheets = Object.keys(cloudData);
+        setSheetNames(sheets);
+        if (sheets.length > 0) setCurrentSheet(sheets[0]);
+      }
     }
     loadData();
   }, []);
@@ -76,6 +84,19 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleUploadToCloud = async () => {
+    if (!allSheetsData) return;
+    setIsSyncing(true);
+    try {
+      await writeData('excelData', allSheetsData);
+      alert("Excel data successfully saved to the cloud! It will now load automatically on any PC.");
+    } catch (err) {
+      alert("Failed to save to cloud.");
     } finally {
       setIsSyncing(false);
     }
@@ -165,6 +186,15 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           >
             <RefreshCw size={18} className={isSyncing ? "animate-spin text-accent" : "text-accent"} />
             {isSyncing ? "Syncing..." : "Process Data"}
+          </button>
+          <button 
+            onClick={handleUploadToCloud}
+            disabled={!allSheetsData || isSyncing}
+            className="px-5 py-2.5 bg-accent/20 text-accent font-medium rounded-lg hover:bg-accent/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Save this processed data to Firebase so it loads everywhere"
+          >
+            <CloudUpload size={18} />
+            Save to Cloud
           </button>
         </div>
       </div>
