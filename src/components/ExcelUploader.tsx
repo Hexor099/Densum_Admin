@@ -270,7 +270,10 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           if (!popup) {
             alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site to send the invoice automatically.");
           } else {
-            await sendWhatsAppAction(tempDocProfile.phone, message, pdfBase64).catch(e => console.error(e));
+            const res = await sendWhatsAppAction(tempDocProfile.phone, message, pdfBase64).catch(e => ({ success: false, error: e.message }));
+            if (res && !res.success) {
+              alert("WhatsApp Automation Failed: " + (res.error || "Unknown error"));
+            }
           }
         }
 
@@ -368,7 +371,10 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             break; // Stop the loop if popups are blocked
           }
           
-          await sendWhatsAppAction(docProfile.phone, message, pdfBase64).catch(e => console.error(e));
+          const res = await sendWhatsAppAction(docProfile.phone, message, pdfBase64).catch(e => ({ success: false, error: e.message }));
+          if (res && !res.success) {
+            console.error("WhatsApp Automation Failed for", docProfile.phone, res.error);
+          }
         }
 
         const newTransaction = {
