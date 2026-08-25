@@ -60,8 +60,8 @@ def send_whatsapp(phone, message, attachment_path=None):
         df.pFiles = offset
         df.fWide = 1
         
-        # utf-16le encoded path with double null terminator
-        encoded_path = abs_path.encode('utf-16le') + b'\x00\x00'
+        # utf-16le encoded path with double null terminator (requires 4 null bytes)
+        encoded_path = abs_path.encode('utf-16le') + b'\x00\x00\x00\x00'
         buf[offset:offset+len(encoded_path)] = encoded_path
         
         log(f"Running native win32clipboard injection...")

@@ -42,13 +42,18 @@ export async function sendWhatsAppAction(phone: string, message: string, pdfBase
       });
 
       pythonProcess.on('close', (code) => {
-        if (attachmentPath && fs.existsSync(attachmentPath)) {
-          try { fs.unlinkSync(attachmentPath); } catch (e) {}
-        }
-        
         if (code === 0) {
+          // Delay deletion so WhatsApp has time to asynchronously read and upload it
+          setTimeout(() => {
+            if (attachmentPath && fs.existsSync(attachmentPath)) {
+              try { fs.unlinkSync(attachmentPath); } catch (e) {}
+            }
+          }, 15000);
           resolve({ success: true });
         } else {
+          if (attachmentPath && fs.existsSync(attachmentPath)) {
+            try { fs.unlinkSync(attachmentPath); } catch (e) {}
+          }
           resolve({ success: false, error: errorData || `Process exited with code ${code}` });
         }
       });
