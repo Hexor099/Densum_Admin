@@ -39,10 +39,15 @@ def send_whatsapp(phone, message, attachment_path=None):
         log(f"Attaching file: {attachment_path}")
         time.sleep(1) # wait a moment before attaching
         
-        # Copy file to clipboard using PowerShell
-        cmd = f"Set-Clipboard -Path '{attachment_path}'"
-        log(f"Running powershell command: {cmd}")
-        subprocess.run(["powershell", "-command", cmd])
+        # Copy file to clipboard using PowerShell with proper CF_HDROP format
+        ps_script = f"""
+Add-Type -AssemblyName System.Windows.Forms
+$col = New-Object System.Collections.Specialized.StringCollection
+$col.Add('{attachment_path}')
+[System.Windows.Forms.Clipboard]::SetFileDropList($col)
+"""
+        log(f"Running powershell clipboard injection...")
+        subprocess.run(["powershell", "-command", ps_script])
         time.sleep(1.5)
         
         # Paste file
