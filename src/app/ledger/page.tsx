@@ -57,7 +57,18 @@ export default function LedgerPage() {
     }
     setIsSendingWA(true);
     const text = `Hello ${selectedDocId}, your current outstanding balance is ₹${selectedDoc.balance || 0}. Please clear it at the earliest.`;
+    let phone = selectedDoc.phone;
+    if (!phone.startsWith('+')) phone = '+91' + phone;
     
+    // Launch the URL from the frontend so it reliably opens in the active desktop
+    const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
+    const popup = window.open(url, '_blank');
+    if (!popup) {
+      alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site.");
+      setIsSendingWA(false);
+      return;
+    }
+
     try {
       const res = await sendWhatsAppAction(selectedDoc.phone, text);
       if (res.success) {
@@ -89,6 +100,17 @@ export default function LedgerPage() {
     
     for (const [docName, doc] of docsWithDues) {
       const text = `Hello ${docName}, your current outstanding balance is ₹${(doc as any).balance || 0}. Please clear it at the earliest.`;
+      let phone = (doc as any).phone;
+      if (!phone.startsWith('+')) phone = '+91' + phone;
+      
+      const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
+      const popup = window.open(url, '_blank');
+      
+      if (!popup) {
+        alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
+        break; // Stop the loop if popups are blocked
+      }
+
       try {
         const res = await sendWhatsAppAction((doc as any).phone, text);
         if (res.success) successCount++;

@@ -13,12 +13,8 @@ def send_whatsapp(phone, message):
     if not phone.startswith("+"):
         phone = "+91" + phone
         
-    encoded_msg = urllib.parse.quote(message)
-    url = f"https://web.whatsapp.com/send?phone={phone}&text={encoded_msg}"
-    
-    # 1. Open URL in default browser on Windows
-    print("Opening WhatsApp Web...")
-    os.system(f'start "" "{url}"')
+    import pyautogui
+    pyautogui.FAILSAFE = False
     
     # 2. Wait 15 seconds for WhatsApp Web to load
     print("Waiting 15 seconds for page to load...")
