@@ -5,6 +5,7 @@ import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2, CloudUpload, Cl
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
 import { fetchData, writeData } from '@/lib/firebase';
+import { sendWhatsAppAction } from '@/app/actions/whatsapp';
 
 export interface ExcelUploaderProps {
   onDataProcessed?: (data: Record<string, any[]>) => void;
@@ -254,7 +255,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF with the corrected balance
         const tempDocProfile = { ...docProfile, balance: prevBalance };
-        generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
+        const pdfBase64 = generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
+
+        // Send via WhatsApp
+        if (tempDocProfile.phone) {
+          const message = `Hello ${currentSheet}, here is your invoice for ${selectedMonth}. Please find the attached PDF.`;
+          sendWhatsAppAction(tempDocProfile.phone, message, pdfBase64).catch(e => console.error(e));
+        }
 
         // Stop here if it was already in the ledger
         if (isDuplicate) return;
@@ -333,7 +340,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         }
 
         // Generate PDF
-        generateInvoicePDF(sheetData, sheet, docProfile, settings);
+        const pdfBase64 = generateInvoicePDF(sheetData, sheet, docProfile, settings);
+
+        // Send via WhatsApp
+        if (docProfile.phone) {
+          const message = `Hello ${sheet}, here is your invoice for ${selectedMonth}. Please find the attached PDF.`;
+          sendWhatsAppAction(docProfile.phone, message, pdfBase64).catch(e => console.error(e));
+        }
 
         const newTransaction = {
           id: Date.now() + processedCount, // ensure unique

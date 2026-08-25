@@ -197,4 +197,6 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
   doc.text(`HSN Code: ${hsnCode}`, 14, finalY + 10);
   
   doc.save(`Tax_Invoice_${doctorName.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+  
+  return doc.output('datauristring');
 }
