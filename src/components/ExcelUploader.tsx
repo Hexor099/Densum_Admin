@@ -260,7 +260,18 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         // Send via WhatsApp
         if (tempDocProfile.phone) {
           const message = `Hello ${currentSheet}, here is your invoice for ${selectedMonth}. Please find the attached PDF.`;
-          sendWhatsAppAction(tempDocProfile.phone, message, pdfBase64).catch(e => console.error(e));
+          
+          let phone = tempDocProfile.phone;
+          if (!phone.startsWith('+')) phone = '+91' + phone;
+          
+          const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+          const popup = window.open(url, '_blank');
+          
+          if (!popup) {
+            alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site to send the invoice automatically.");
+          } else {
+            await sendWhatsAppAction(tempDocProfile.phone, message, pdfBase64).catch(e => console.error(e));
+          }
         }
 
         // Stop here if it was already in the ledger
@@ -345,7 +356,19 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         // Send via WhatsApp
         if (docProfile.phone) {
           const message = `Hello ${sheet}, here is your invoice for ${selectedMonth}. Please find the attached PDF.`;
-          sendWhatsAppAction(docProfile.phone, message, pdfBase64).catch(e => console.error(e));
+          
+          let phone = docProfile.phone;
+          if (!phone.startsWith('+')) phone = '+91' + phone;
+          
+          const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+          const popup = window.open(url, '_blank');
+          
+          if (!popup) {
+            alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
+            break; // Stop the loop if popups are blocked
+          }
+          
+          await sendWhatsAppAction(docProfile.phone, message, pdfBase64).catch(e => console.error(e));
         }
 
         const newTransaction = {
