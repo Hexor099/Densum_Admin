@@ -11,14 +11,19 @@ export async function sendWhatsAppAction(phone: string, message: string, pdfBase
     
     try {
       if (pdfBase64) {
-        // Remove the data URI scheme prefix
-        const base64Data = pdfBase64.replace(/^data:application\/pdf;filename=[\w-]+\.pdf;base64,/, '').replace(/^data:application\/pdf;base64,/, '');
+        // Remove the data URI scheme prefix safely
+        let base64Data = pdfBase64;
+        if (pdfBase64.includes(',')) {
+          base64Data = pdfBase64.split(',')[1];
+        }
+        
         const tempDir = path.join(process.cwd(), 'temp');
         if (!fs.existsSync(tempDir)) {
           fs.mkdirSync(tempDir, { recursive: true });
         }
         attachmentPath = path.join(tempDir, `invoice_${Date.now()}.pdf`);
         fs.writeFileSync(attachmentPath, base64Data, 'base64');
+        console.log(`Saved PDF to ${attachmentPath}, size: ${base64Data.length} chars`);
       }
 
       const scriptPath = path.join(process.cwd(), 'scripts', 'send_whatsapp.py');
