@@ -225,24 +225,39 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     
     if (filteredData && currentSheet && filteredData.length > 0) {
       const docProfile = doctorsData[currentSheet] || {};
-      generateInvoicePDF(filteredData, currentSheet, docProfile, settings);
       
-      // Auto-update ledger
       let totalInclusive = 0;
       filteredData.forEach((row: any) => {
         totalInclusive += Number(row.Total) || 0;
       });
 
       if (totalInclusive > 0) {
-        // Fetch current ledger
+        // Fetch current ledger FIRST to prevent duplicate entry or incorrect PDF balance
         const currentLedger = await fetchData(`ledger/${currentSheet}`) || [];
         
-        // Prevent duplicate bill
         const invoiceDescription = `Auto-generated Invoice - ${selectedMonth}`;
-        if (currentLedger.some((tx: any) => tx.description === invoiceDescription)) {
-          alert(`An invoice for ${selectedMonth} has already been generated for ${currentSheet}.`);
-          return;
+        const existingTxIndex = currentLedger.findIndex((tx: any) => tx.description === invoiceDescription);
+        const isDuplicate = existingTxIndex !== -1;
+        
+        let prevBalance = Number(docProfile.balance) || 0;
+
+        if (isDuplicate) {
+          const wantToRedownload = confirm(`An invoice for ${selectedMonth} has already been generated for ${currentSheet}. Do you want to re-download a copy?`);
+          if (!wantToRedownload) return;
+          
+          // Re-calculate the balance BEFORE this invoice was generated
+          prevBalance = 0;
+          for (let i = 0; i < existingTxIndex; i++) {
+             prevBalance += Number(currentLedger[i].amount) || 0;
+          }
         }
+
+        // Generate PDF with the corrected balance
+        const tempDocProfile = { ...docProfile, balance: prevBalance };
+        generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
+
+        // Stop here if it was already in the ledger
+        if (isDuplicate) return;
 
         const newTransaction = {
           id: Date.now(),
@@ -307,10 +322,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       if (totalInclusive > 0) {
         const docProfile = newDocsData[sheet] || {};
         
-        // Generate PDF
-        generateInvoicePDF(sheetData, sheet, docProfile, settings);
-        
-        // Update Ledger
+        // Update Ledger check FIRST
         const currentLedger = await fetchData(`ledger/${sheet}`) || [];
         
         // Prevent duplicate bill
@@ -319,6 +331,9 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           skippedCount++;
           continue;
         }
+
+        // Generate PDF
+        generateInvoicePDF(sheetData, sheet, docProfile, settings);
 
         const newTransaction = {
           id: Date.now() + processedCount, // ensure unique
