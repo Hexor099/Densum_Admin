@@ -72,6 +72,35 @@ export default function LedgerPage() {
     }
   };
 
+  const handleBulkWhatsApp = async () => {
+    const docsWithDues = Object.entries(doctors).filter(([docName, doc]: [string, any]) => {
+      return (Number(doc.balance) || 0) > 0 && doc.phone;
+    });
+
+    if (docsWithDues.length === 0) {
+      alert("No doctors have both an outstanding balance and a saved phone number.");
+      return;
+    }
+
+    if (!confirm(`This will automatically send WhatsApp messages to ${docsWithDues.length} doctors. DO NOT touch your mouse or keyboard while it runs. It will take about 20 seconds per message. Continue?`)) return;
+
+    setIsSendingWA(true);
+    let successCount = 0;
+    
+    for (const [docName, doc] of docsWithDues) {
+      const text = `Hello ${docName}, your current outstanding balance is ₹${(doc as any).balance || 0}. Please clear it at the earliest.`;
+      try {
+        const res = await sendWhatsAppAction((doc as any).phone, text);
+        if (res.success) successCount++;
+      } catch (e) {
+        console.error("Failed for", docName);
+      }
+    }
+    
+    setIsSendingWA(false);
+    alert(`Finished! Successfully sent ${successCount} out of ${docsWithDues.length} messages.`);
+  };
+
   const recordTransaction = async (type: 'Payment' | 'Bill') => {
     if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) return;
     
@@ -142,9 +171,20 @@ export default function LedgerPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Doctor Profiles & Ledger</h1>
-        <p className="text-foreground/70">Manage custom pricing, view ledger, and record payments.</p>
+      <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Doctor Profiles & Ledger</h1>
+          <p className="text-foreground/70">Manage custom pricing, view ledger, and record payments.</p>
+        </div>
+        <button 
+          onClick={handleBulkWhatsApp}
+          disabled={isSendingWA}
+          className="px-5 py-2.5 bg-[#25D366]/20 text-[#25D366] font-bold rounded-lg hover:bg-[#25D366]/30 transition-all border border-[#25D366]/30 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(37,211,102,0.2)] disabled:opacity-50"
+          title="Auto-send due alerts to all doctors with balances > 0"
+        >
+          <MessageCircle size={20} className={isSendingWA ? "animate-pulse" : ""} />
+          {isSendingWA ? "Sending Auto-Alerts..." : "Auto-Send Due Alerts"}
+        </button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

@@ -8,7 +8,7 @@ def send_whatsapp(phone_number, message):
             phone_number = "+91" + phone_number
         
         # Send message instantly and close tab after 3 seconds
-        kit.sendwhatmsg_instantly(phone_number, message, wait_time=5, tab_close=True, close_time=3)
+        kit.sendwhatmsg_instantly(phone_number, message, wait_time=15, tab_close=True, close_time=3)
         print("Success: Message sent")
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)
