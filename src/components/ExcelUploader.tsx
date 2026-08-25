@@ -19,7 +19,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [doctorsData, setDoctorsData] = useState<Record<string, any>>({});
   const [settings, setSettings] = useState<any>({});
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('All');
 
   useEffect(() => {
     // Load doctor pricing and lab settings from Firebase
@@ -206,16 +206,9 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   // Sort months properly (basic string sort or date sort)
   availableMonths.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-  // Auto-select first month if current selection is invalid
-  useEffect(() => {
-    if (availableMonths.length > 0 && !availableMonths.includes(selectedMonth)) {
-      setSelectedMonth(availableMonths[0]);
-    }
-  }, [availableMonths.join(','), selectedMonth]);
-
   // Filter data based on selected month
   const filteredData = enhancedData ? enhancedData.filter(row => {
-    if (!selectedMonth) return false;
+    if (selectedMonth === 'All') return true;
     const getVal = (possibleKeys: string[]) => {
       const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
       return foundKey ? row[foundKey] : undefined;
@@ -225,6 +218,11 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   }) : null;
 
   const handleGeneratePDF = async () => {
+    if (selectedMonth === 'All') {
+      alert("Please select a specific Billing Month first. You cannot generate a bill for 'All Months'.");
+      return;
+    }
+    
     if (filteredData && currentSheet && filteredData.length > 0) {
       const docProfile = doctorsData[currentSheet] || {};
       generateInvoicePDF(filteredData, currentSheet, docProfile, settings);
@@ -270,9 +268,14 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   };
 
   const handleGenerateAll = async () => {
+    if (selectedMonth === 'All') {
+      alert("Please select a specific Billing Month from the dropdown first. Bulk generation for 'All Months' is not allowed.");
+      return;
+    }
+
     if (!allEnhancedData || Object.keys(allEnhancedData).length === 0) return;
     
-    if (!confirm("This will generate invoices and update the ledger for ALL doctors. Continue?")) return;
+    if (!confirm(`This will generate invoices and update the ledger for ALL doctors for ${selectedMonth}. Continue?`)) return;
 
     let processedCount = 0;
     let skippedCount = 0;
@@ -283,7 +286,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       if (!sheetData || sheetData.length === 0) continue;
       
       // Apply month filter
-      if (selectedMonth) {
+      if (selectedMonth !== 'All') {
         sheetData = sheetData.filter(row => {
           const getVal = (possibleKeys: string[]) => {
             const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
@@ -472,7 +475,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm appearance-none"
             >
-              {availableMonths.length === 0 && <option value="">No months available</option>}
+              <option value="All">All Months (View Only)</option>
               {availableMonths.map(month => (
                 <option key={month} value={month}>{month}</option>
               ))}
