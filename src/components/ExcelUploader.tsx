@@ -19,7 +19,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [doctorsData, setDoctorsData] = useState<Record<string, any>>({});
   const [settings, setSettings] = useState<any>({});
-  const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
 
   useEffect(() => {
     // Load doctor pricing and lab settings from Firebase
@@ -206,9 +206,16 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   // Sort months properly (basic string sort or date sort)
   availableMonths.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
+  // Auto-select first month if current selection is invalid
+  useEffect(() => {
+    if (availableMonths.length > 0 && !availableMonths.includes(selectedMonth)) {
+      setSelectedMonth(availableMonths[0]);
+    }
+  }, [availableMonths.join(','), selectedMonth]);
+
   // Filter data based on selected month
   const filteredData = enhancedData ? enhancedData.filter(row => {
-    if (selectedMonth === 'All') return true;
+    if (!selectedMonth) return false;
     const getVal = (possibleKeys: string[]) => {
       const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
       return foundKey ? row[foundKey] : undefined;
@@ -231,12 +238,20 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       if (totalInclusive > 0) {
         // Fetch current ledger
         const currentLedger = await fetchData(`ledger/${currentSheet}`) || [];
+        
+        // Prevent duplicate bill
+        const invoiceDescription = `Auto-generated Invoice - ${selectedMonth}`;
+        if (currentLedger.some((tx: any) => tx.description === invoiceDescription)) {
+          alert(`An invoice for ${selectedMonth} has already been generated for ${currentSheet}.`);
+          return;
+        }
+
         const newTransaction = {
           id: Date.now(),
           date: new Date().toISOString().split('T')[0],
           type: 'Invoice Generated',
           amount: totalInclusive,
-          description: `Auto-generated Invoice`
+          description: invoiceDescription
         };
         const updatedTransactions = [...currentLedger, newTransaction];
         await writeData(`ledger/${currentSheet}`, updatedTransactions);
@@ -260,6 +275,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     if (!confirm("This will generate invoices and update the ledger for ALL doctors. Continue?")) return;
 
     let processedCount = 0;
+    let skippedCount = 0;
     const newDocsData = { ...doctorsData };
 
     for (const sheet of Object.keys(allEnhancedData)) {
@@ -267,7 +283,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       if (!sheetData || sheetData.length === 0) continue;
       
       // Apply month filter
-      if (selectedMonth !== 'All') {
+      if (selectedMonth) {
         sheetData = sheetData.filter(row => {
           const getVal = (possibleKeys: string[]) => {
             const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
@@ -293,12 +309,20 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         
         // Update Ledger
         const currentLedger = await fetchData(`ledger/${sheet}`) || [];
+        
+        // Prevent duplicate bill
+        const invoiceDescription = `Auto-generated Invoice - ${selectedMonth}`;
+        if (currentLedger.some((tx: any) => tx.description === invoiceDescription)) {
+          skippedCount++;
+          continue;
+        }
+
         const newTransaction = {
           id: Date.now() + processedCount, // ensure unique
           date: new Date().toISOString().split('T')[0],
           type: 'Invoice Generated',
           amount: totalInclusive,
-          description: `Auto-generated Invoice`
+          description: invoiceDescription
         };
         
         const updatedTransactions = [...currentLedger, newTransaction];
@@ -318,8 +342,8 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     }
 
     setDoctorsData(newDocsData);
-    if (processedCount > 0) {
-      alert(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!`);
+    if (processedCount > 0 || skippedCount > 0) {
+      alert(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!${skippedCount > 0 ? ` Skipped ${skippedCount} doctors who already had bills generated for ${selectedMonth}.` : ''}`);
     } else {
       alert("No valid billable data found to generate.");
     }
@@ -448,7 +472,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm appearance-none"
             >
-              <option value="All">All Months</option>
+              {availableMonths.length === 0 && <option value="">No months available</option>}
               {availableMonths.map(month => (
                 <option key={month} value={month}>{month}</option>
               ))}
