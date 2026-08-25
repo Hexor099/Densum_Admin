@@ -19,35 +19,51 @@ def send_whatsapp(phone, message, attachment_path=None):
     print("Waiting 15 seconds for page to load...")
     time.sleep(15)
     
+    log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'temp', 'whatsapp_log.txt')
+    def log(msg):
+        with open(log_file, 'a') as f:
+            f.write(f"{time.strftime('%X')} - {msg}\n")
+        print(msg)
+
     # 3. Press Enter to send text message
-    print("Pressing Enter to send text...")
+    log("Pressing Enter to send text...")
     pyautogui.press('enter')
     
     # 4. If attachment_path is provided, attach it
+    log(f"Attachment path provided: {attachment_path}")
+    if attachment_path:
+        log(f"Path exists: {os.path.exists(attachment_path)}")
+    
     if attachment_path and os.path.exists(attachment_path):
         import subprocess
-        print(f"Attaching file: {attachment_path}")
+        log(f"Attaching file: {attachment_path}")
         time.sleep(1) # wait a moment before attaching
         
         # Copy file to clipboard using PowerShell
-        subprocess.run(["powershell", "-command", f"Set-Clipboard -Path '{attachment_path}'"])
+        cmd = f"Set-Clipboard -Path '{attachment_path}'"
+        log(f"Running powershell command: {cmd}")
+        subprocess.run(["powershell", "-command", cmd])
         time.sleep(1.5)
         
         # Paste file
+        log("Pasting file with Ctrl+V...")
         pyautogui.hotkey('ctrl', 'v')
         time.sleep(3.5) # Wait for attachment preview to load
         
         # Press Enter to send attachment
+        log("Pressing Enter to send attachment...")
         pyautogui.press('enter')
         time.sleep(4) # Wait for file to send
     else:
         # Wait 3 seconds for text message to send
+        log("Waiting 3 seconds (no valid attachment)...")
         time.sleep(3)
         
     # Close tab
+    log("Closing tab...")
     pyautogui.hotkey('ctrl', 'w')
     
-    print("Success: Message sent")
+    log("Success: Message sent")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
