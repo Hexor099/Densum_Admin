@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2, CloudUpload, CloudDownload } from 'lucide-react';
+import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
 import { fetchData, writeData } from '@/lib/firebase';
@@ -325,6 +325,27 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     }
   };
 
+  const handleClearAllLedgers = async () => {
+    if (!confirm("Are you sure you want to completely clear the ledgers and reset balances to zero for ALL doctors? This cannot be undone!")) return;
+    setIsSyncing(true);
+    try {
+      const updatedDocs = { ...doctorsData };
+      let count = 0;
+      for (const docName of Object.keys(updatedDocs)) {
+        await writeData(`ledger/${docName}`, null);
+        updatedDocs[docName].balance = 0;
+        await writeData(`doctors/${docName}/balance`, 0);
+        count++;
+      }
+      setDoctorsData(updatedDocs);
+      alert(`Successfully cleared ledgers and reset balances for ${count} doctors.`);
+    } catch (err: any) {
+      alert("Failed to clear ledgers: " + (err.message || "Unknown error"));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="bg-panel rounded-xl border border-panel-border p-6 mt-6 shadow-lg relative">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
@@ -335,7 +356,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           <p className="text-sm text-foreground/60 mt-1">Upload your Lab Work Excel file to generate bills.</p>
         </div>
         
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <label className="flex-1 md:flex-none flex items-center gap-2 px-4 py-2.5 bg-black/40 border border-panel-border text-foreground/80 font-medium rounded-lg hover:border-accent hover:text-white transition-all cursor-pointer">
             <Upload size={18} />
             <span className="truncate max-w-[150px]">{file ? file.name : "Choose File"}</span>
@@ -366,6 +387,15 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           >
             <CloudDownload size={18} />
             Load from Cloud
+          </button>
+          <button 
+            onClick={handleClearAllLedgers}
+            disabled={isSyncing}
+            className="px-5 py-2.5 bg-red-500/20 text-red-400 font-medium rounded-lg hover:bg-red-500/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Clear all ledgers for testing"
+          >
+            <Trash2 size={18} />
+            Clear Ledgers
           </button>
         </div>
       </div>
