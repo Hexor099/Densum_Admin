@@ -51,7 +51,8 @@ $col.Add('{attachment_path}')
             f.write(ps_script)
             
         log(f"Running powershell script {ps_script_path}...")
-        subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", ps_script_path])
+        CREATE_NO_WINDOW = 0x08000000
+        subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", ps_script_path], creationflags=CREATE_NO_WINDOW)
         time.sleep(1.5)
         
         # Paste file
