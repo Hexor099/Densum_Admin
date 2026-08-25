@@ -39,20 +39,37 @@ def send_whatsapp(phone, message, attachment_path=None):
         log(f"Attaching file: {attachment_path}")
         time.sleep(1) # wait a moment before attaching
         
-        # Copy file to clipboard using a temporary PowerShell script to avoid escaping issues
-        ps_script = f"""
-Add-Type -AssemblyName System.Windows.Forms
-$col = New-Object System.Collections.Specialized.StringCollection
-$col.Add('{attachment_path}')
-[System.Windows.Forms.Clipboard]::SetFileDropList($col)
-"""
-        ps_script_path = os.path.join(os.path.dirname(attachment_path), 'copy_to_clipboard.ps1')
-        with open(ps_script_path, 'w') as f:
-            f.write(ps_script)
-            
-        log(f"Running powershell script {ps_script_path}...")
-        CREATE_NO_WINDOW = 0x08000000
-        subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", ps_script_path], creationflags=CREATE_NO_WINDOW)
+        import win32clipboard
+        import ctypes
+        from ctypes import wintypes
+        
+        abs_path = os.path.abspath(attachment_path)
+        class DROPFILES(ctypes.Structure):
+            _fields_ = [
+                ("pFiles", ctypes.c_uint),
+                ("pt", wintypes.POINT),
+                ("fNC", ctypes.c_int),
+                ("fWide", ctypes.c_int),
+            ]
+        
+        offset = ctypes.sizeof(DROPFILES)
+        length = (len(abs_path) + 2) * 2
+        buf = bytearray(offset + length)
+        
+        df = DROPFILES.from_buffer(buf)
+        df.pFiles = offset
+        df.fWide = 1
+        
+        # utf-16le encoded path with double null terminator
+        encoded_path = abs_path.encode('utf-16le') + b'\x00\x00'
+        buf[offset:offset+len(encoded_path)] = encoded_path
+        
+        log(f"Running native win32clipboard injection...")
+        win32clipboard.OpenClipboard()
+        win32clipboard.EmptyClipboard()
+        win32clipboard.SetClipboardData(win32clipboard.CF_HDROP, bytes(buf))
+        win32clipboard.CloseClipboard()
+        
         time.sleep(1.5)
         
         # Paste file
