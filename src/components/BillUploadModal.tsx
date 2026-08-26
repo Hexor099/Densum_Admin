@@ -68,6 +68,21 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
     setLoading(true);
     
     try {
+      // Check for duplicate invoice
+      if (parsedBill.invoiceNo && parsedBill.invoiceNo !== "Unknown") {
+        const existingBills = await fetchData('bills');
+        if (existingBills) {
+          const isDuplicate = Object.values(existingBills).some(
+            (b: any) => b.invoiceNo === parsedBill.invoiceNo
+          );
+          if (isDuplicate) {
+            setError(`Invoice #${parsedBill.invoiceNo} has already been scanned and added to inventory!`);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       for (const item of parsedBill.items) {
         // Simple ID generation for new items based on name
         const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
