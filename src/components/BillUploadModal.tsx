@@ -128,8 +128,16 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                 onClick={() => fileInputRef.current?.click()}
               >
                 {previewUrl ? (
-                  <div className="relative w-full max-w-sm mx-auto aspect-[3/4] rounded-lg overflow-hidden border border-panel-border shadow-lg">
-                    <img src={previewUrl} alt="Bill Preview" className="object-cover w-full h-full" />
+                  <div className="relative w-full max-w-sm mx-auto aspect-[3/4] rounded-lg overflow-hidden border border-panel-border shadow-lg bg-black/20 flex flex-col items-center justify-center">
+                    {file?.type === "application/pdf" ? (
+                      <div className="flex flex-col items-center justify-center text-accent h-full p-6">
+                        <FileCheck size={64} className="mb-4" />
+                        <span className="font-bold text-lg text-center break-all">{file.name}</span>
+                        <span className="text-sm text-white/50 mt-2">PDF Document Ready</span>
+                      </div>
+                    ) : (
+                      <img src={previewUrl} alt="Bill Preview" className="object-cover w-full h-full" />
+                    )}
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                       <p className="text-white font-bold">Change Image</p>
                     </div>
@@ -140,8 +148,8 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                       <Camera size={32} className="text-accent" />
                     </div>
                     <div>
-                      <p className="font-semibold text-white">Click to upload an image</p>
-                      <p className="text-sm text-foreground/50 mt-1">Supports JPG, PNG, WebP</p>
+                      <p className="font-semibold text-white">Click to upload an image or PDF</p>
+                      <p className="text-sm text-foreground/50 mt-1">Supports JPG, PNG, WebP, PDF</p>
                     </div>
                   </div>
                 )}
@@ -149,7 +157,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                   type="file" 
                   ref={fileInputRef} 
                   onChange={handleFileChange} 
-                  accept="image/*" 
+                  accept="image/*,application/pdf" 
                   className="hidden" 
                 />
               </div>
