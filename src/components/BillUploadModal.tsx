@@ -23,6 +23,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parsedBill, setParsedBill] = useState<ParsedBill | null>(null);
+  const [customNote, setCustomNote] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,7 +51,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
     setError(null);
     
     try {
-      const res = await parseBillImageAction(base64Image, file.type);
+      const res = await parseBillImageAction(base64Image, file.type, customNote);
       if (res.success && res.data) {
         setParsedBill(res.data);
       } else {
@@ -198,6 +199,16 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                   onChange={handleFileChange} 
                   accept="image/*,application/pdf" 
                   className="hidden" 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">Custom Instructions for AI (Optional)</label>
+                <textarea 
+                  value={customNote}
+                  onChange={(e) => setCustomNote(e.target.value)}
+                  placeholder="E.g., Ignore shipping fees, treat 'AquaZ' as 'Aquazir White Blank', etc."
+                  className="w-full bg-black/40 border border-panel-border rounded-xl px-4 py-3 text-white placeholder-foreground/40 focus:outline-none focus:border-accent resize-none h-20"
                 />
               </div>
             </div>

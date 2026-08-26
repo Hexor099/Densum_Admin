@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-export async function parseBillImageAction(base64Image: string, mimeType: string) {
+export async function parseBillImageAction(base64Image: string, mimeType: string, customNote?: string) {
   if (!process.env.GEMINI_API_KEY) {
     return { success: false, error: "Missing GEMINI_API_KEY environment variable. Please add it to .env.local" };
   }
@@ -15,6 +15,7 @@ export async function parseBillImageAction(base64Image: string, mimeType: string
     const prompt = `
       You are an expert inventory assistant for a dental lab. 
       Extract the purchased items and their quantities from the attached bill/receipt image or PDF.
+      ${customNote ? `\nUSER INSTRUCTIONS / CUSTOM ORDERS:\n${customNote}\nPlease follow the above instructions carefully when extracting the data.\n` : ''}
       Return ONLY a JSON object with the following structure:
       {
         "invoiceNo": (string) the invoice or bill number (return "Unknown" if not found),
