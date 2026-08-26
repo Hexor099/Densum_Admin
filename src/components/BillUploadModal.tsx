@@ -225,7 +225,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                 </div>
                 <div className="text-right">
                   <p className="text-sm opacity-80">Total Amount</p>
-                  <p className="font-bold text-lg">${parsedBill.totalAmount?.toLocaleString()}</p>
+                  <p className="font-bold text-lg">₹{parsedBill.totalAmount?.toLocaleString()}</p>
                 </div>
               </div>
 
@@ -242,7 +242,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                     {parsedBill.items.map((item, idx) => (
                       <tr key={idx} className="border-b border-panel-border/30 last:border-0">
                         <td className="px-6 py-3 font-medium text-white">{item.name}</td>
-                        <td className="px-6 py-3 text-center text-foreground/80">${item.rate?.toLocaleString()}</td>
+                        <td className="px-6 py-3 text-center text-foreground/80">₹{item.rate?.toLocaleString()}</td>
                         <td className="px-6 py-3 text-center font-bold text-accent">{item.qty}</td>
                       </tr>
                     ))}
