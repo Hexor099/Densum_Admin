@@ -4,18 +4,13 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Minus, History, PackageOpen, AlertTriangle } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 
-const mockHistory = [
-  { id: 1, item: 'Zirconia Blank 14mm', change: -1, date: '2023-10-15 14:30', user: 'Technician 1' },
-  { id: 2, item: 'E.Max Press Ingots', change: -2, date: '2023-10-15 12:15', user: 'Technician 2' },
-  { id: 3, item: 'Alginate Impression Material', change: +10, date: '2023-10-14 09:00', user: 'Admin' },
-];
-
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [catalog, setCatalog] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const updateStock = async (itemId: string, currentQty: number, change: number) => {
+  const updateStock = async (itemId: string, itemName: string, currentQty: number, change: number) => {
     const newQty = Math.max(0, currentQty + change);
     if (newQty === currentQty) return;
     
@@ -23,14 +18,26 @@ export default function InventoryPage() {
       item.id === itemId ? { ...item, qty: newQty } : item
     ));
 
+    const histEntry = {
+      item: itemName,
+      change: change,
+      date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      user: 'Admin'
+    };
+    const histId = Date.now().toString();
+
+    setHistory(prev => [{ id: histId, ...histEntry }, ...prev]);
+
     try {
       await writeData(`lab_catalog/${itemId}/qty`, newQty);
+      await writeData(`inventory_history/${histId}`, histEntry);
     } catch (error) {
       console.error("Failed to update stock", error);
       // Revert on error
       setCatalog(prev => prev.map(item => 
         item.id === itemId ? { ...item, qty: currentQty } : item
       ));
+      setHistory(prev => prev.filter(h => h.id !== histId));
     }
   };
 
@@ -45,6 +52,16 @@ export default function InventoryPage() {
         }));
         setCatalog(catalogArray);
       }
+
+      const histData = await fetchData('inventory_history');
+      if (histData) {
+        const histArray = Object.keys(histData).map(key => ({
+          id: key,
+          ...histData[key]
+        })).sort((a, b) => b.id.localeCompare(a.id));
+        setHistory(histArray);
+      }
+      
       setLoading(false);
     }
     
@@ -119,13 +136,13 @@ export default function InventoryPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
                             <button 
-                              onClick={() => updateStock(item.id, item.qty || 0, -1)}
+                              onClick={() => updateStock(item.id, item.name || 'Unknown Item', item.qty || 0, -1)}
                               className="p-1.5 bg-black/40 border border-panel-border rounded-md hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 transition-colors"
                             >
                               <Minus size={16} />
                             </button>
                             <button 
-                              onClick={() => updateStock(item.id, item.qty || 0, 1)}
+                              onClick={() => updateStock(item.id, item.name || 'Unknown Item', item.qty || 0, 1)}
                               className="p-1.5 bg-black/40 border border-panel-border rounded-md hover:bg-green-500/20 hover:text-green-400 hover:border-green-500/50 transition-colors"
                             >
                               <Plus size={16} />
@@ -152,20 +169,24 @@ export default function InventoryPage() {
             <History size={18} className="text-accent" /> Usage History
           </h2>
           <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
-            {mockHistory.map(entry => (
-              <div key={entry.id} className="p-4 rounded-xl bg-black/20 border border-panel-border/50 hover:border-accent/30 transition-colors">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="font-semibold text-white text-sm">{entry.item}</span>
-                  <span className={`text-xs font-bold px-2 py-1 rounded-md ${entry.change > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                    {entry.change > 0 ? `+${entry.change}` : entry.change}
-                  </span>
+            {history.length === 0 ? (
+              <div className="p-10 text-center text-foreground/50">No recent activity.</div>
+            ) : (
+              history.map(entry => (
+                <div key={entry.id} className="p-4 rounded-xl bg-black/20 border border-panel-border/50 hover:border-accent/30 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-semibold text-white text-sm">{entry.item}</span>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-md ${entry.change > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {entry.change > 0 ? `+${entry.change}` : entry.change}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-foreground/50">
+                    <span>{entry.user}</span>
+                    <span>{entry.date}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center text-xs text-foreground/50">
-                  <span>{entry.user}</span>
-                  <span>{entry.date}</span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
