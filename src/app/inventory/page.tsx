@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Plus, Minus, History, PackageOpen, AlertTriangle } from 'lucide-react';
-import { fetchData } from '@/lib/firebase';
+import { fetchData, writeData } from '@/lib/firebase';
 
 const mockHistory = [
   { id: 1, item: 'Zirconia Blank 14mm', change: -1, date: '2023-10-15 14:30', user: 'Technician 1' },
@@ -14,6 +14,25 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [catalog, setCatalog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const updateStock = async (itemId: string, currentQty: number, change: number) => {
+    const newQty = Math.max(0, currentQty + change);
+    if (newQty === currentQty) return;
+    
+    setCatalog(prev => prev.map(item => 
+      item.id === itemId ? { ...item, qty: newQty } : item
+    ));
+
+    try {
+      await writeData(`lab_catalog/${itemId}/qty`, newQty);
+    } catch (error) {
+      console.error("Failed to update stock", error);
+      // Revert on error
+      setCatalog(prev => prev.map(item => 
+        item.id === itemId ? { ...item, qty: currentQty } : item
+      ));
+    }
+  };
 
   useEffect(() => {
     async function loadInventory() {
@@ -99,10 +118,16 @@ export default function InventoryPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
-                            <button className="p-1.5 bg-black/40 border border-panel-border rounded-md hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 transition-colors">
+                            <button 
+                              onClick={() => updateStock(item.id, item.qty || 0, -1)}
+                              className="p-1.5 bg-black/40 border border-panel-border rounded-md hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 transition-colors"
+                            >
                               <Minus size={16} />
                             </button>
-                            <button className="p-1.5 bg-black/40 border border-panel-border rounded-md hover:bg-green-500/20 hover:text-green-400 hover:border-green-500/50 transition-colors">
+                            <button 
+                              onClick={() => updateStock(item.id, item.qty || 0, 1)}
+                              className="p-1.5 bg-black/40 border border-panel-border rounded-md hover:bg-green-500/20 hover:text-green-400 hover:border-green-500/50 transition-colors"
+                            >
                               <Plus size={16} />
                             </button>
                           </div>
