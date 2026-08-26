@@ -117,6 +117,20 @@ export default function InventoryPage() {
         </div>
         <div className="flex flex-col md:flex-row items-center gap-4">
           <button 
+            onClick={async () => {
+              if (confirm('Are you sure you want to completely clear the inventory and history? This is for testing only.')) {
+                setLoading(true);
+                await writeData('lab_catalog', null);
+                await writeData('inventory_history', null);
+                await refreshData();
+              }
+            }}
+            className="w-full md:w-auto px-5 py-3 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all border border-red-500/30 flex items-center justify-center gap-2"
+          >
+            <AlertTriangle size={20} />
+            Clear Inventory
+          </button>
+          <button 
             onClick={() => setIsModalOpen(true)}
             className="w-full md:w-auto px-5 py-3 bg-accent/20 text-accent font-bold rounded-xl hover:bg-accent/30 transition-all border border-accent/30 flex items-center justify-center gap-2"
           >
