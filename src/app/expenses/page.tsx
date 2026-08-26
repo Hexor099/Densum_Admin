@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator, AlertTriangle, Trash2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator, AlertTriangle, Trash2, X, Download } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 
 export default function ExpensesPage() {
@@ -11,6 +11,8 @@ export default function ExpensesPage() {
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
+  
+  const [viewingBillImage, setViewingBillImage] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -109,7 +111,7 @@ export default function ExpensesPage() {
       const currentExpensesArray = Array.isArray(expenses) ? expenses : (expenses ? Object.values(expenses) : []);
       // If the expense doesn't have an ID for some reason, match by date and amount as fallback
       const updatedExpenses = currentExpensesArray.filter((e: any) => {
-        if (expense.id && e.id) return e.id !== expense.id;
+        if (expense.id && e.id) return String(e.id) !== String(expense.id);
         return !(e.date === expense.date && e.amount === expense.amount && e.desc === expense.desc);
       });
       
@@ -118,6 +120,24 @@ export default function ExpensesPage() {
     } catch (error) {
       console.error("Failed to delete expense:", error);
       alert("An error occurred while deleting the expense. Please try refreshing the page.");
+    }
+  };
+
+  const handleRowDoubleClick = async (expense: any) => {
+    const billMatch = expense.desc?.match(/Auto-logged from Bill Scan \(Invoice #(.*?)\)/);
+    if (billMatch) {
+      const invoiceNo = String(billMatch[1]).trim();
+      const allBills = await fetchData('bills');
+      if (allBills) {
+        const matchedBill = Object.values(allBills).find((b: any) => b && String(b.invoiceNo).trim() === invoiceNo);
+        if (matchedBill && (matchedBill as any).image) {
+          setViewingBillImage((matchedBill as any).image);
+        } else {
+          alert('Could not find the original scanned image for this bill.');
+        }
+      } else {
+        alert('Could not find any bill records.');
+      }
     }
   };
 
@@ -249,8 +269,15 @@ export default function ExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {[...expenses].reverse().map((expense) => (
-                  <tr key={expense.id || expense.date + expense.amount} className="border-b border-panel-border/30 hover:bg-white/5 transition-colors">
+                {[...expenses].reverse().map((expense) => {
+                  const isBill = expense.desc?.includes('Auto-logged from Bill Scan');
+                  return (
+                  <tr 
+                    key={expense.id || expense.date + expense.amount} 
+                    onDoubleClick={() => handleRowDoubleClick(expense)}
+                    className={`border-b border-panel-border/30 hover:bg-white/5 transition-colors ${isBill ? 'cursor-pointer' : ''}`}
+                    title={isBill ? "Double click to view original bill" : ""}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-foreground/80">{expense.date}</td>
                     <td className="px-6 py-4">
                       <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs font-semibold text-white/80">
@@ -263,7 +290,7 @@ export default function ExpensesPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button 
-                        onClick={() => handleDeleteExpense(expense)}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteExpense(expense); }}
                         className="p-2 text-foreground/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                         title="Delete Expense"
                       >
@@ -271,7 +298,7 @@ export default function ExpensesPage() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                )})}
                 {expenses.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-8 text-center text-foreground/50">No expenses recorded yet.</td>
@@ -282,6 +309,39 @@ export default function ExpensesPage() {
           </div>
         </div>
       </div>
+
+      {/* Bill Image Viewer Modal */}
+      {viewingBillImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-panel border border-panel-border rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-panel-border/50 flex items-center justify-between bg-black/20">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Receipt className="text-accent" /> Original Scanned Bill
+              </h2>
+              <button onClick={() => setViewingBillImage(null)} className="p-2 text-foreground/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 flex-1 overflow-auto flex items-center justify-center bg-black/40 relative">
+              {viewingBillImage.startsWith('data:application/pdf') ? (
+                <iframe src={viewingBillImage} className="w-full h-[60vh] rounded-lg border border-panel-border" title="PDF Bill Viewer" />
+              ) : (
+                <img src={viewingBillImage} alt="Original Bill" className="max-w-full max-h-[70vh] object-contain rounded-lg border border-panel-border shadow-lg" />
+              )}
+            </div>
+            <div className="p-4 border-t border-panel-border/50 bg-black/20 flex justify-end">
+              <a 
+                href={viewingBillImage}
+                download="scanned-bill"
+                className="px-5 py-2.5 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all flex items-center gap-2"
+              >
+                <Download size={18} />
+                Download Bill
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
