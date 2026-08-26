@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator, AlertTriangle, Trash2 } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 
 export default function ExpensesPage() {
@@ -55,6 +55,56 @@ export default function ExpensesPage() {
     
     alert(`Logged ${category} expense of ₹${amount}`);
     setCategory(''); setAmount(''); setDesc('');
+  };
+
+  const handleDeleteExpense = async (expense: any) => {
+    // Determine if this is an Auto-logged Bill Scan expense
+    const billMatch = expense.desc?.match(/Auto-logged from Bill Scan \(Invoice #(.*?)\)/);
+    
+    if (billMatch) {
+      const invoiceNo = billMatch[1];
+      const confirmDelete = confirm(
+        `This expense is linked to an AI Bill Scan (Invoice #${invoiceNo}).\n\n` +
+        `Deleting this will ALSO subtract the purchased items from your inventory and delete the bill history.\n\n` +
+        `Are you sure you want to proceed?`
+      );
+      if (!confirmDelete) return;
+      
+      // Step 1: Find the matching bill
+      const allBills = await fetchData('bills');
+      if (allBills) {
+        const billEntries = Object.entries(allBills);
+        const matchedBillEntry = billEntries.find(([_, b]: any) => b.invoiceNo === invoiceNo);
+        
+        if (matchedBillEntry) {
+          const [billId, billData] = matchedBillEntry as [string, any];
+          
+          // Step 2: Revert inventory
+          if (billData.items && Array.isArray(billData.items)) {
+            for (const item of billData.items) {
+              const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+              const existingData = await fetchData(`lab_catalog/${itemId}`);
+              if (existingData) {
+                const currentQty = existingData.qty || 0;
+                const revertedQty = Math.max(0, currentQty - item.qty);
+                await writeData(`lab_catalog/${itemId}/qty`, revertedQty);
+              }
+            }
+          }
+          
+          // Step 3: Delete bill
+          await writeData(`bills/${billId}`, null);
+        }
+      }
+    } else {
+      // Normal expense
+      if (!confirm(`Are you sure you want to delete this expense: ${expense.category} - ₹${expense.amount}?`)) return;
+    }
+    
+    // Step 4: Remove expense from expenses array
+    const updatedExpenses = expenses.filter(e => e.id !== expense.id);
+    setExpenses(updatedExpenses);
+    await writeData('expenses', updatedExpenses);
   };
 
   return (
@@ -181,6 +231,7 @@ export default function ExpensesPage() {
                   <th className="px-6 py-4">Category</th>
                   <th className="px-6 py-4">Description</th>
                   <th className="px-6 py-4 text-right">Amount (₹)</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,11 +247,20 @@ export default function ExpensesPage() {
                     <td className="px-6 py-4 text-right font-bold text-red-400">
                       ₹{expense.amount.toLocaleString()}
                     </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => handleDeleteExpense(expense)}
+                        className="p-2 text-foreground/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Delete Expense"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {expenses.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-foreground/50">No expenses recorded yet.</td>
+                    <td colSpan={5} className="px-6 py-8 text-center text-foreground/50">No expenses recorded yet.</td>
                   </tr>
                 )}
               </tbody>
