@@ -84,7 +84,8 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         }
       }
 
-      for (const item of parsedBill.items) {
+      // Process all items concurrently for speed
+      await Promise.all(parsedBill.items.map(async (item) => {
         // Simple ID generation for new items based on name
         const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
         
@@ -112,7 +113,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
           date: new Date().toISOString().replace('T', ' ').substring(0, 16),
           user: 'Admin (Bill Upload)'
         });
-      }
+      }));
 
       // Save the bill metadata
       const billId = Date.now().toString();

@@ -82,10 +82,10 @@ export default function ExpensesPage() {
           if (matchedBillEntry) {
             const [billId, billData] = matchedBillEntry as [string, any];
             
-            // Step 2: Revert inventory
+            // Step 2: Revert inventory concurrently
             if (billData && billData.items && Array.isArray(billData.items)) {
-              for (const item of billData.items) {
-                if (!item || !item.name) continue;
+              await Promise.all(billData.items.map(async (item: any) => {
+                if (!item || !item.name) return;
                 const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
                 const existingData = await fetchData(`lab_catalog/${itemId}`);
                 if (existingData) {
@@ -93,7 +93,7 @@ export default function ExpensesPage() {
                   const revertedQty = Math.max(0, currentQty - (item.qty || 0));
                   await writeData(`lab_catalog/${itemId}/qty`, revertedQty);
                 }
-              }
+              }));
             }
             
             // Step 3: Delete bill
