@@ -126,6 +126,7 @@ export default function InventoryPage() {
                 setLoading(true);
                 await writeData('lab_catalog', null);
                 await writeData('inventory_history', null);
+                await writeData('bills', null);
                 await refreshData();
               }
             }}
