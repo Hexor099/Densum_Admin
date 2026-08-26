@@ -84,6 +84,8 @@ export default function InventoryPage() {
         ...data[key]
       }));
       setCatalog(catalogArray);
+    } else {
+      setCatalog([]);
     }
 
     const histData = await fetchData('inventory_history');
@@ -93,6 +95,8 @@ export default function InventoryPage() {
         ...histData[key]
       })).sort((a, b) => b.id.localeCompare(a.id));
       setHistory(histArray);
+    } else {
+      setHistory([]);
     }
     
     setLoading(false);
