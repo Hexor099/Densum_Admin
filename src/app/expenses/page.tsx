@@ -58,53 +58,67 @@ export default function ExpensesPage() {
   };
 
   const handleDeleteExpense = async (expense: any) => {
-    // Determine if this is an Auto-logged Bill Scan expense
-    const billMatch = expense.desc?.match(/Auto-logged from Bill Scan \(Invoice #(.*?)\)/);
-    
-    if (billMatch) {
-      const invoiceNo = billMatch[1];
-      const confirmDelete = confirm(
-        `This expense is linked to an AI Bill Scan (Invoice #${invoiceNo}).\n\n` +
-        `Deleting this will ALSO subtract the purchased items from your inventory and delete the bill history.\n\n` +
-        `Are you sure you want to proceed?`
-      );
-      if (!confirmDelete) return;
+    try {
+      // Determine if this is an Auto-logged Bill Scan expense
+      const billMatch = expense.desc?.match(/Auto-logged from Bill Scan \(Invoice #(.*?)\)/);
       
-      // Step 1: Find the matching bill
-      const allBills = await fetchData('bills');
-      if (allBills) {
-        const billEntries = Object.entries(allBills);
-        const matchedBillEntry = billEntries.find(([_, b]: any) => b.invoiceNo === invoiceNo);
+      if (billMatch) {
+        const invoiceNo = String(billMatch[1]).trim();
+        const confirmDelete = confirm(
+          `This expense is linked to an AI Bill Scan (Invoice #${invoiceNo}).\n\n` +
+          `Deleting this will ALSO subtract the purchased items from your inventory and delete the bill history.\n\n` +
+          `Are you sure you want to proceed?`
+        );
+        if (!confirmDelete) return;
         
-        if (matchedBillEntry) {
-          const [billId, billData] = matchedBillEntry as [string, any];
+        // Step 1: Find the matching bill
+        const allBills = await fetchData('bills');
+        if (allBills) {
+          const billEntries = Object.entries(allBills);
+          const matchedBillEntry = billEntries.find(([_, b]: any) => b && String(b.invoiceNo).trim() === invoiceNo);
           
-          // Step 2: Revert inventory
-          if (billData.items && Array.isArray(billData.items)) {
-            for (const item of billData.items) {
-              const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-              const existingData = await fetchData(`lab_catalog/${itemId}`);
-              if (existingData) {
-                const currentQty = existingData.qty || 0;
-                const revertedQty = Math.max(0, currentQty - item.qty);
-                await writeData(`lab_catalog/${itemId}/qty`, revertedQty);
+          if (matchedBillEntry) {
+            const [billId, billData] = matchedBillEntry as [string, any];
+            
+            // Step 2: Revert inventory
+            if (billData && billData.items && Array.isArray(billData.items)) {
+              for (const item of billData.items) {
+                if (!item || !item.name) continue;
+                const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                const existingData = await fetchData(`lab_catalog/${itemId}`);
+                if (existingData) {
+                  const currentQty = existingData.qty || 0;
+                  const revertedQty = Math.max(0, currentQty - (item.qty || 0));
+                  await writeData(`lab_catalog/${itemId}/qty`, revertedQty);
+                }
               }
             }
+            
+            // Step 3: Delete bill
+            await writeData(`bills/${billId}`, null);
+          } else {
+            alert(`Note: The original bill for Invoice #${invoiceNo} could not be found. The expense will still be deleted.`);
           }
-          
-          // Step 3: Delete bill
-          await writeData(`bills/${billId}`, null);
         }
+      } else {
+        // Normal expense
+        if (!confirm(`Are you sure you want to delete this expense: ${expense.category} - ₹${expense.amount}?`)) return;
       }
-    } else {
-      // Normal expense
-      if (!confirm(`Are you sure you want to delete this expense: ${expense.category} - ₹${expense.amount}?`)) return;
+      
+      // Step 4: Remove expense from expenses array safely
+      const currentExpensesArray = Array.isArray(expenses) ? expenses : (expenses ? Object.values(expenses) : []);
+      // If the expense doesn't have an ID for some reason, match by date and amount as fallback
+      const updatedExpenses = currentExpensesArray.filter((e: any) => {
+        if (expense.id && e.id) return e.id !== expense.id;
+        return !(e.date === expense.date && e.amount === expense.amount && e.desc === expense.desc);
+      });
+      
+      setExpenses(updatedExpenses);
+      await writeData('expenses', updatedExpenses);
+    } catch (error) {
+      console.error("Failed to delete expense:", error);
+      alert("An error occurred while deleting the expense. Please try refreshing the page.");
     }
-    
-    // Step 4: Remove expense from expenses array
-    const updatedExpenses = expenses.filter(e => e.id !== expense.id);
-    setExpenses(updatedExpenses);
-    await writeData('expenses', updatedExpenses);
   };
 
   return (
