@@ -124,7 +124,9 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       });
 
       // Add to Expenses
-      const currentExpenses = await fetchData('expenses') || [];
+      const rawExpenses = await fetchData('expenses');
+      const currentExpenses = Array.isArray(rawExpenses) ? rawExpenses : (rawExpenses ? Object.values(rawExpenses) : []);
+      
       const newExpense = {
         id: Date.now(),
         date: new Date().toISOString().split('T')[0],
@@ -198,13 +200,6 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                   className="hidden" 
                 />
               </div>
-
-              {error && (
-                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-start gap-3">
-                  <AlertCircle size={20} className="shrink-0 mt-0.5" />
-                  <p className="text-sm">{error}</p>
-                </div>
-              )}
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -245,6 +240,13 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
               <p className="text-xs text-foreground/50 text-center">
                 Confirming will add these items to your lab catalog and log them in your usage history.
               </p>
+            </div>
+          )}
+          
+          {error && (
+            <div className="mt-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-start gap-3 animate-in fade-in zoom-in-95">
+              <AlertCircle size={20} className="shrink-0 mt-0.5" />
+              <p className="text-sm break-words flex-1">{error}</p>
             </div>
           )}
         </div>
