@@ -131,6 +131,10 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
     body: rows,
     startY: 88,
     theme: 'grid',
+    styles: {
+      lineWidth: 0.5,
+      lineColor: [0, 0, 0]
+    },
     headStyles: { fillColor: [13, 24, 38], textColor: [255, 255, 255] },
     columnStyles: {
       4: { halign: 'right' as const, cellPadding: { top: 2, bottom: 2, left: 1, right: 1 }, minCellWidth: 15 },
@@ -141,8 +145,8 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
         const rawRow = data.row.raw as any[];
         const hasFDI = rawRow[9];
         if (hasFDI && (data.column.index === 4 || data.column.index === 5)) {
-          doc.setDrawColor(200, 200, 200); // lighter line for the inner cross
-          doc.setLineWidth(0.1);
+          doc.setDrawColor(0, 0, 0); // darker line for the inner cross
+          doc.setLineWidth(0.5);
           const midY = data.cell.y + (data.cell.height / 2);
           doc.line(data.cell.x, midY, data.cell.x + data.cell.width, midY);
         }
@@ -189,6 +193,10 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
     startY: finalY,
     margin: { left: 120 },
     theme: 'grid',
+    styles: {
+      lineWidth: 0.5,
+      lineColor: [0, 0, 0]
+    },
     headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0] },
     columnStyles: { 1: { halign: 'right' } }
   });
