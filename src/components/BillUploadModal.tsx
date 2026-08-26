@@ -72,7 +72,8 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         const stockData = {
           name: item.name,
           qty: item.qty,
-          min_limit: 5 // default min limit
+          min_limit: 5, // default min limit
+          barcode: Math.floor(100000000000 + Math.random() * 900000000000).toString() // Generate random 12-digit barcode
         };
 
         // Write to catalog
