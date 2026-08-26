@@ -10,13 +10,19 @@ interface BillUploadModalProps {
   onSuccess: () => void;
 }
 
+interface ParsedBill {
+  invoiceNo: string;
+  totalAmount: number;
+  items: { name: string; qty: number; rate: number }[];
+}
+
 export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [base64Image, setBase64Image] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [parsedItems, setParsedItems] = useState<{ name: string, qty: number }[] | null>(null);
+  const [parsedBill, setParsedBill] = useState<ParsedBill | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,7 +52,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
     try {
       const res = await parseBillImageAction(base64Image, file.type);
       if (res.success && res.data) {
-        setParsedItems(res.data);
+        setParsedBill(res.data);
       } else {
         setError(res.error || "Failed to parse bill.");
       }
@@ -58,11 +64,11 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
   };
 
   const handleConfirm = async () => {
-    if (!parsedItems) return;
+    if (!parsedBill) return;
     setLoading(true);
     
     try {
-      for (const item of parsedItems) {
+      for (const item of parsedBill.items) {
         // Simple ID generation for new items based on name
         const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
         
@@ -72,6 +78,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         const stockData = {
           name: item.name,
           qty: item.qty,
+          last_purchase_rate: item.rate,
           min_limit: 5, // default min limit
           barcode: Math.floor(100000000000 + Math.random() * 900000000000).toString() // Generate random 12-digit barcode
         };
@@ -93,7 +100,9 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       const billId = Date.now().toString();
       await writeData(`bills/${billId}`, {
         date: new Date().toISOString(),
-        items: parsedItems,
+        invoiceNo: parsedBill.invoiceNo,
+        totalAmount: parsedBill.totalAmount,
+        items: parsedBill.items,
         image: `data:${file?.type};base64,${base64Image}` // Save small base64 directly to RTDB (careful with large images)
       });
 
@@ -117,7 +126,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
-          {!parsedItems ? (
+          {!parsedBill ? (
             <div className="space-y-6">
               <p className="text-foreground/70">
                 Upload an image of a purchase bill/receipt. Our AI will automatically extract the items and quantities to update your inventory.
@@ -171,9 +180,18 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-              <div className="flex items-center gap-3 text-green-400 bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
-                <FileCheck size={24} />
-                <p className="font-medium">Successfully extracted {parsedItems.length} items from the bill.</p>
+              <div className="flex items-center justify-between gap-3 text-green-400 bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <FileCheck size={24} />
+                  <div>
+                    <p className="font-medium">Successfully extracted {parsedBill.items.length} items.</p>
+                    <p className="text-sm opacity-80">Invoice #: {parsedBill.invoiceNo}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm opacity-80">Total Amount</p>
+                  <p className="font-bold text-lg">${parsedBill.totalAmount?.toLocaleString()}</p>
+                </div>
               </div>
 
               <div className="bg-black/20 border border-panel-border rounded-lg overflow-hidden">
@@ -181,13 +199,15 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                   <thead className="text-xs text-foreground/60 uppercase bg-black/40">
                     <tr>
                       <th className="px-6 py-3">Item Name</th>
+                      <th className="px-6 py-3 text-center">Rate</th>
                       <th className="px-6 py-3 text-center">Quantity</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedItems.map((item, idx) => (
+                    {parsedBill.items.map((item, idx) => (
                       <tr key={idx} className="border-b border-panel-border/30 last:border-0">
                         <td className="px-6 py-3 font-medium text-white">{item.name}</td>
+                        <td className="px-6 py-3 text-center text-foreground/80">${item.rate?.toLocaleString()}</td>
                         <td className="px-6 py-3 text-center font-bold text-accent">{item.qty}</td>
                       </tr>
                     ))}
@@ -210,7 +230,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
             Cancel
           </button>
 
-          {!parsedItems ? (
+          {!parsedBill ? (
             <button
               onClick={handleParse}
               disabled={!file || loading}

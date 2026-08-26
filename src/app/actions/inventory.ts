@@ -14,10 +14,19 @@ export async function parseBillImageAction(base64Image: string, mimeType: string
 
     const prompt = `
       You are an expert inventory assistant for a dental lab. 
-      Extract the purchased items and their quantities from the attached bill/receipt image.
-      Return ONLY a JSON array of objects, where each object has:
-      - "name": (string) the name of the item
-      - "qty": (number) the quantity purchased
+      Extract the purchased items and their quantities from the attached bill/receipt image or PDF.
+      Return ONLY a JSON object with the following structure:
+      {
+        "invoiceNo": (string) the invoice or bill number (return "Unknown" if not found),
+        "totalAmount": (number) the total amount of the bill,
+        "items": [
+          {
+            "name": (string) the name of the item,
+            "qty": (number) the quantity purchased,
+            "rate": (number) the price per unit or rate
+          }
+        ]
+      }
       
       Make sure it's valid JSON. Do not include markdown code block syntax like \`\`\`json.
     `;
