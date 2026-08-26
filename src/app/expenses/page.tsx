@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator } from 'lucide-react';
+import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator, AlertTriangle } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 
 export default function ExpensesPage() {
@@ -59,9 +59,23 @@ export default function ExpensesPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Expense Tracker & P&L</h1>
-        <p className="text-foreground/70">Monitor operational costs and calculate live Net Profit.</p>
+      <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Expense Tracker & P&L</h1>
+          <p className="text-foreground/70">Monitor operational costs and calculate live Net Profit.</p>
+        </div>
+        <button 
+          onClick={async () => {
+            if (confirm('Are you sure you want to completely clear all expenses? This is for testing only.')) {
+              await writeData('expenses', null);
+              setExpenses([]);
+            }
+          }}
+          className="w-full md:w-auto px-5 py-2.5 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all border border-red-500/30 flex items-center justify-center gap-2"
+        >
+          <AlertTriangle size={20} />
+          Clear Expenses
+        </button>
       </header>
 
       {/* P&L Cards */}
