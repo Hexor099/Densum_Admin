@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Camera, X, Loader2, FileCheck, AlertCircle } from "lucide-react";
 import { parseBillImageAction } from "@/app/actions/inventory";
-import { writeData } from "@/lib/firebase";
+import { fetchData, writeData } from "@/lib/firebase";
 
 interface BillUploadModalProps {
   onClose: () => void;
@@ -105,6 +105,17 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         items: parsedBill.items,
         image: `data:${file?.type};base64,${base64Image}` // Save small base64 directly to RTDB (careful with large images)
       });
+
+      // Add to Expenses
+      const currentExpenses = await fetchData('expenses') || [];
+      const newExpense = {
+        id: Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        category: "Inventory Purchase",
+        amount: parsedBill.totalAmount || 0,
+        desc: `Auto-logged from Bill Scan (Invoice #${parsedBill.invoiceNo || 'Unknown'})`
+      };
+      await writeData('expenses', [...currentExpenses, newExpense]);
 
       onSuccess();
     } catch (err: any) {
