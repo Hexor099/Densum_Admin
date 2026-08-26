@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Minus, History, PackageOpen, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
+import { BillUploadModal } from '@/components/BillUploadModal';
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [catalog, setCatalog] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const updateStock = async (itemId: string, itemName: string, currentQty: number, change: number) => {
     const newQty = Math.max(0, currentQty + change);
@@ -71,6 +73,35 @@ export default function InventoryPage() {
     // using onValue from firebase/database instead of fetchData (get)
     // but this serves as a good start.
   }, []);
+
+  const refreshData = async () => {
+    setLoading(true);
+    
+    const data = await fetchData('lab_catalog');
+    if (data) {
+      const catalogArray = Object.keys(data).map(key => ({
+        id: key,
+        ...data[key]
+      }));
+      setCatalog(catalogArray);
+    }
+
+    const histData = await fetchData('inventory_history');
+    if (histData) {
+      const histArray = Object.keys(histData).map(key => ({
+        id: key,
+        ...histData[key]
+      })).sort((a, b) => b.id.localeCompare(a.id));
+      setHistory(histArray);
+    }
+    
+    setLoading(false);
+  };
+
+  const handleModalSuccess = () => {
+    setIsModalOpen(false);
+    refreshData();
+  };
   
   const filteredCatalog = catalog.filter(item => 
     (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -84,15 +115,24 @@ export default function InventoryPage() {
           <h1 className="text-3xl font-bold text-white mb-2">Cloud Inventory (DentalLabSync)</h1>
           <p className="text-foreground/70">Real-time stock management and usage history.</p>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50" size={20} />
-          <input 
-            type="text" 
-            placeholder="Barcode or Search Item..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full md:w-80 bg-panel border border-panel-border rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-accent transition-colors shadow-lg"
-          />
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="w-full md:w-auto px-5 py-3 bg-accent/20 text-accent font-bold rounded-xl hover:bg-accent/30 transition-all border border-accent/30 flex items-center justify-center gap-2"
+          >
+            <Camera size={20} />
+            Scan Bill
+          </button>
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50" size={20} />
+            <input 
+              type="text" 
+              placeholder="Barcode or Search Item..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full bg-panel border border-panel-border rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-accent transition-colors shadow-lg"
+            />
+          </div>
         </div>
       </header>
 
@@ -190,6 +230,13 @@ export default function InventoryPage() {
           </div>
         </div>
       </div>
+
+      {isModalOpen && (
+        <BillUploadModal 
+          onClose={() => setIsModalOpen(false)} 
+          onSuccess={handleModalSuccess} 
+        />
+      )}
     </div>
   );
 }
