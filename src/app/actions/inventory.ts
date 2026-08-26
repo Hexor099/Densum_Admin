@@ -10,7 +10,7 @@ export async function parseBillImageAction(base64Image: string, mimeType: string
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
 
     const prompt = `
       You are an expert inventory assistant for a dental lab. 
