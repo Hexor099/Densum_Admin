@@ -72,15 +72,17 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         // Simple ID generation for new items based on name
         const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
         
-        // In a robust system, we would check if it exists and ADD to current qty.
-        // For simplicity (remaking), we assume it's a new or updated stock entry.
-        // But let's actually just update it safely if we can, or blindly write it.
+        // Fetch existing data to add quantity instead of overwriting
+        const existingData = await fetchData(`lab_catalog/${itemId}`);
+        const currentQty = existingData?.qty || 0;
+        const existingBarcode = existingData?.barcode;
+        
         const stockData = {
           name: item.name,
-          qty: item.qty,
+          qty: currentQty + item.qty, // Add the new quantity to the existing quantity
           last_purchase_rate: item.rate,
-          min_limit: 5, // default min limit
-          barcode: Math.floor(100000000000 + Math.random() * 900000000000).toString() // Generate random 12-digit barcode
+          min_limit: existingData?.min_limit || 5, // preserve existing min_limit or default to 5
+          barcode: existingBarcode || Math.floor(100000000000 + Math.random() * 900000000000).toString() // Preserve existing barcode or generate new
         };
 
         // Write to catalog
