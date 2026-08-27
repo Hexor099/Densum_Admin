@@ -18,6 +18,8 @@ const navItems = [
   { name: 'Aging Report', href: '/aging-report', icon: Users },
   { name: 'Bank Book', href: '/bank-book', icon: ReceiptIndianRupee },
   { name: 'Inventory', href: '/inventory', icon: Package },
+  { name: 'Suppliers', href: '/suppliers', icon: Users },
+  { name: 'Purchases', href: '/purchases', icon: ReceiptIndianRupee },
   { name: 'Expenses', href: '/expenses', icon: ReceiptIndianRupee },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

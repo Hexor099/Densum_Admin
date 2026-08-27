@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera, FileSpreadsheet } from 'lucide-react';
+import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera, FileSpreadsheet, MessageCircle, TrendingUp } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 import { BillUploadModal } from '@/components/BillUploadModal';
 import * as xlsx from 'xlsx';
@@ -10,6 +10,7 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [catalog, setCatalog] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -65,6 +66,11 @@ export default function InventoryPage() {
         setHistory(histArray);
       }
       
+      const suppData = await fetchData('suppliers');
+      if (suppData) {
+        setSuppliers(suppData);
+      }
+
       setLoading(false);
     }
     
@@ -100,6 +106,11 @@ export default function InventoryPage() {
       setHistory([]);
     }
     
+    const suppData = await fetchData('suppliers');
+    if (suppData) {
+      setSuppliers(suppData);
+    }
+
     setLoading(false);
   };
 
@@ -112,6 +123,31 @@ export default function InventoryPage() {
     (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
     (item.id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalInventoryValue = catalog.reduce((sum, item) => {
+    return sum + ((Number(item.qty) || 0) * (Number(item.last_purchase_rate) || 0));
+  }, 0);
+
+  const handleReorder = (item: any) => {
+    const supplierId = item.supplierId;
+    if (!supplierId || !suppliers[supplierId]) {
+      alert("No primary supplier assigned to this item. Please select a supplier when uploading a bill for this item.");
+      return;
+    }
+
+    const supplier = suppliers[supplierId];
+    if (!supplier.phone) {
+      alert(`Supplier ${supplier.name} does not have a phone number saved.`);
+      return;
+    }
+
+    const text = `Hello ${supplier.name}, please process an order for ${item.name} for Densum Digital Lab. Our stock is running low. Let us know the current rate and expected delivery.`;
+    let phone = supplier.phone;
+    if (!phone.startsWith('+')) phone = '+91' + phone;
+
+    const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
 
   const handleExportExcel = () => {
     if (filteredCatalog.length === 0) {
@@ -137,10 +173,20 @@ export default function InventoryPage() {
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Cloud Inventory (DentalLabSync)</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Cloud Inventory</h1>
           <p className="text-foreground/70">Real-time stock management and usage history.</p>
         </div>
-        <div className="flex flex-col md:flex-row items-center gap-4">
+        
+        <div className="bg-panel border border-accent/30 px-5 py-3 rounded-xl shadow-[0_0_15px_rgba(0,194,255,0.1)] flex items-center gap-4">
+          <div className="flex flex-col">
+            <span className="text-xs text-accent uppercase font-bold tracking-wider">Total Value</span>
+            <span className="text-2xl font-bold text-white">₹{totalInventoryValue.toLocaleString()}</span>
+          </div>
+          <TrendingUp className="text-accent/50" size={32} />
+        </div>
+      </header>
+      
+      <div className="flex flex-col md:flex-row items-center justify-end gap-4 mb-6">
           <button 
             onClick={async () => {
               if (confirm('Are you sure you want to completely clear the inventory and history? This is for testing only.')) {
@@ -181,7 +227,6 @@ export default function InventoryPage() {
             />
           </div>
         </div>
-      </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Inventory Table */}
@@ -234,6 +279,15 @@ export default function InventoryPage() {
                             >
                               <Plus size={16} />
                             </button>
+                            {isLow && (
+                              <button
+                                onClick={() => handleReorder(item)}
+                                className="p-1.5 bg-green-500/20 border border-green-500/30 rounded-md text-green-400 hover:bg-green-500/30 transition-colors ml-2 flex items-center gap-1 text-xs font-bold"
+                                title="Reorder via WhatsApp"
+                              >
+                                <MessageCircle size={16} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

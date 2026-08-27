@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Camera, X, Loader2, FileCheck, AlertCircle } from "lucide-react";
+import { Camera, X, Loader2, FileCheck, AlertCircle, Building2 } from "lucide-react";
 import { parseBillImageAction } from "@/app/actions/inventory";
 import { fetchData, writeData } from "@/lib/firebase";
+import { useEffect } from "react";
 
 interface BillUploadModalProps {
   onClose: () => void;
@@ -24,6 +25,17 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [parsedBill, setParsedBill] = useState<ParsedBill | null>(null);
   const [customNote, setCustomNote] = useState<string>('');
+  
+  const [suppliers, setSuppliers] = useState<Record<string, any>>({});
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('');
+
+  useEffect(() => {
+    async function loadSuppliers() {
+      const supps = await fetchData('suppliers');
+      if (supps) setSuppliers(supps);
+    }
+    loadSuppliers();
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +59,8 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
 
   const handleParse = async () => {
     if (!base64Image || !file) return;
+    if (!selectedSupplier) return setError("Please select a supplier first.");
+
     setLoading(true);
     setError(null);
     
@@ -117,13 +131,32 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
 
       // Save the bill metadata
       const billId = Date.now().toString();
+      const supplierName = suppliers[selectedSupplier]?.name || 'Unknown Supplier';
+
       await writeData(`bills/${billId}`, {
         date: new Date().toISOString(),
         invoiceNo: parsedBill.invoiceNo,
+        supplierId: selectedSupplier,
+        supplierName: supplierName,
         totalAmount: parsedBill.totalAmount,
         items: parsedBill.items,
         image: `data:${file?.type};base64,${base64Image}` // Save small base64 directly to RTDB (careful with large images)
       });
+
+      // Update Supplier Ledger and Balance
+      const currentSupplier = suppliers[selectedSupplier];
+      if (currentSupplier) {
+        const newTx = {
+          id: Date.now().toString(),
+          date: new Date().toISOString().split('T')[0],
+          type: 'Bill',
+          amount: parsedBill.totalAmount || 0, // positive amount increases debt
+          refNumber: parsedBill.invoiceNo
+        };
+        const suppLedger = await fetchData(`supplier_ledger/${selectedSupplier}`) || [];
+        await writeData(`supplier_ledger/${selectedSupplier}`, [...suppLedger, newTx]);
+        await writeData(`suppliers/${selectedSupplier}/balance`, (Number(currentSupplier.balance) || 0) + (parsedBill.totalAmount || 0));
+      }
 
       // Add to Expenses
       const rawExpenses = await fetchData('expenses');
@@ -134,7 +167,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         date: new Date().toISOString().split('T')[0],
         category: "Inventory Purchase",
         amount: parsedBill.totalAmount || 0,
-        desc: `Auto-logged from Bill Scan (Invoice #${parsedBill.invoiceNo || 'Unknown'})`
+        desc: `Bill from ${supplierName} (Invoice #${parsedBill.invoiceNo || 'Unknown'})`
       };
       await writeData('expenses', [...currentExpenses, newExpense]);
 
@@ -164,6 +197,25 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
                 Upload an image of a purchase bill/receipt. Our AI will automatically extract the items and quantities to update your inventory.
               </p>
               
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80 flex items-center gap-2">
+                  <Building2 size={16} className="text-accent" /> Select Supplier *
+                </label>
+                <select 
+                  value={selectedSupplier}
+                  onChange={(e) => setSelectedSupplier(e.target.value)}
+                  className="w-full bg-black/40 border border-panel-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent"
+                >
+                  <option value="">-- Choose Supplier --</option>
+                  {Object.values(suppliers).map((s: any) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                {Object.keys(suppliers).length === 0 && (
+                  <p className="text-xs text-yellow-400 mt-1">No suppliers found. Please add a supplier first in the Suppliers page.</p>
+                )}
+              </div>
+
               <div 
                 className="border-2 border-dashed border-panel-border rounded-xl p-8 text-center hover:border-accent/50 hover:bg-white/5 transition-all cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
