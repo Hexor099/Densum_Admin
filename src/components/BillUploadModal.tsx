@@ -13,6 +13,7 @@ interface BillUploadModalProps {
 
 interface ParsedBill {
   invoiceNo: string;
+  billDate?: string;
   totalAmount: number;
   items: { name: string; qty: number; rate: number }[];
 }
@@ -170,9 +171,10 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       // Save the bill metadata
       const billId = Date.now().toString();
       const supplierName = suppliers[selectedSupplier]?.name || 'Unknown Supplier';
+      const actualBillDate = parsedBill.billDate || new Date().toISOString().split('T')[0];
 
       await writeData(`bills/${billId}`, {
-        date: new Date().toISOString(),
+        date: actualBillDate,
         invoiceNo: parsedBill.invoiceNo,
         supplierId: selectedSupplier,
         supplierName: supplierName,
@@ -186,7 +188,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       if (currentSupplier) {
         const newTx = {
           id: Date.now().toString(),
-          date: new Date().toISOString().split('T')[0],
+          date: actualBillDate,
           type: 'Bill',
           amount: parsedBill.totalAmount || 0, // positive amount increases debt
           refNumber: parsedBill.invoiceNo
@@ -202,7 +204,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       
       const newExpense = {
         id: Date.now(),
-        date: new Date().toISOString().split('T')[0],
+        date: actualBillDate,
         category: "Inventory Purchase",
         amount: parsedBill.totalAmount || 0,
         desc: `Bill from ${supplierName} (Invoice #${parsedBill.invoiceNo || 'Unknown'})`

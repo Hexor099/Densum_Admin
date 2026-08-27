@@ -19,6 +19,7 @@ export async function parseBillImageAction(base64Image: string, mimeType: string
       Return ONLY a JSON object with the following structure:
       {
         "invoiceNo": (string) the invoice or bill number (return "Unknown" if not found),
+        "billDate": (string) the date of the bill in YYYY-MM-DD format (return today's date if not found),
         "totalAmount": (number) the total amount of the bill,
         "items": [
           {
