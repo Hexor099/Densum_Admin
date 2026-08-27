@@ -151,6 +151,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
           name: item.name,
           qty: currentQty + item.qty, // Add the new quantity to the existing quantity
           last_purchase_rate: item.rate,
+          supplierId: selectedSupplier, // Link the primary supplier to the item for reordering
           min_limit: existingData?.min_limit || 5, // preserve existing min_limit or default to 5
           barcode: existingBarcode || Math.floor(100000000000 + Math.random() * 900000000000).toString() // Preserve existing barcode or generate new
         };
