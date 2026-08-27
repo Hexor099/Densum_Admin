@@ -127,10 +127,12 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         const existingBills = await fetchData('bills');
         if (existingBills) {
           const isDuplicate = Object.values(existingBills).some(
-            (b: any) => b.invoiceNo === parsedBill.invoiceNo
+            (b: any) => 
+              String(b.invoiceNo).trim() === String(parsedBill.invoiceNo).trim() && 
+              b.supplierId === selectedSupplier
           );
           if (isDuplicate) {
-            setError(`Invoice #${parsedBill.invoiceNo} has already been scanned and added to inventory!`);
+            setError(`Invoice #${parsedBill.invoiceNo} from this supplier has already been scanned and added to inventory!`);
             setLoading(false);
             return;
           }
