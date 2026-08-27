@@ -11,6 +11,9 @@ export default function LedgerPage() {
   const [ledger, setLedger] = useState<any>({});
   const [selectedDocId, setSelectedDocId] = useState<string>('');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [txType, setTxType] = useState<'Payment' | 'Bill' | 'Credit Note' | 'Debit Note'>('Payment');
+  const [paymentMode, setPaymentMode] = useState('Cash');
+  const [refNumber, setRefNumber] = useState('');
   const [isSendingWA, setIsSendingWA] = useState(false);
   const [materialName, setMaterialName] = useState('');
   const [materialRate, setMaterialRate] = useState('');
@@ -170,19 +173,21 @@ export default function LedgerPage() {
     alert(`Finished! Successfully sent ${successCount} out of ${docsWithDues.length} messages.`);
   };
 
-  const recordTransaction = async (type: 'Payment' | 'Bill') => {
+  const recordTransaction = async () => {
     if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) return;
     
     const amount = Number(paymentAmount);
-    // If Payment, amount is negative (reduces balance). If Bill, amount is positive (increases balance).
-    const txAmount = type === 'Payment' ? -amount : amount;
+    const isReducer = txType === 'Payment' || txType === 'Credit Note';
+    const txAmount = isReducer ? -amount : amount;
     
     const newTransaction = {
       id: Date.now(),
       date: new Date().toISOString().split('T')[0],
-      type: type,
+      type: txType,
       amount: txAmount,
-      description: type === 'Payment' ? 'Manual Payment Received' : 'Manual Bill / Invoice'
+      description: `Manual ${txType}${refNumber ? ` (Ref: ${refNumber})` : ''}`,
+      paymentMode: txType === 'Payment' ? paymentMode : null,
+      refNumber: refNumber || null
     };
 
     const updatedTransactions = [...transactions, newTransaction];
@@ -196,8 +201,9 @@ export default function LedgerPage() {
     await writeData(`ledger/${selectedDocId}`, updatedTransactions);
     await writeData(`doctors/${selectedDocId}/balance`, newBalance);
     
-    alert(`Recorded ${type} of ₹${amount} for ${selectedDocId}`);
+    alert(`Recorded ${txType} of ₹${amount} for ${selectedDocId}`);
     setPaymentAmount('');
+    setRefNumber('');
   };
 
   const savePhone = async () => {
@@ -339,37 +345,90 @@ export default function LedgerPage() {
             {/* Payment and Pricing Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Transaction Card */}
-              <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[280px] flex flex-col">
+              <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg flex flex-col">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <DollarSign size={18} className="text-accent" /> Manual Ledger Entry
                 </h3>
-                <div className="flex gap-3 mb-4">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50">₹</span>
-                    <input 
-                      type="number" 
-                      placeholder="Amount"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                      className="w-full bg-black/40 border border-panel-border rounded-lg pl-8 pr-4 py-2.5 text-white focus:outline-none focus:border-accent transition-colors"
-                    />
+                
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground/70 mb-1">Type</label>
+                    <select 
+                      value={txType} 
+                      onChange={(e: any) => setTxType(e.target.value)}
+                      className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent appearance-none text-sm"
+                    >
+                      <option value="Payment">Payment Received</option>
+                      <option value="Bill">New Bill / Invoice</option>
+                      <option value="Credit Note">Credit Note (Refund)</option>
+                      <option value="Debit Note">Debit Note (Charge)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground/70 mb-1">Amount (₹)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 text-sm">₹</span>
+                      <input 
+                        type="number" 
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        className="w-full bg-black/40 border border-panel-border rounded-lg pl-7 pr-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                        placeholder="0.00"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => recordTransaction('Payment')}
-                    className="flex-1 px-4 py-2.5 bg-green-500/20 text-green-400 font-bold rounded-lg hover:bg-green-500/30 transition-all shadow-sm border border-green-500/30"
-                  >
-                    Receive Payment
-                  </button>
-                  <button 
-                    onClick={() => recordTransaction('Bill')}
-                    className="flex-1 px-4 py-2.5 bg-red-500/20 text-red-400 font-bold rounded-lg hover:bg-red-500/30 transition-all shadow-sm border border-red-500/30"
-                  >
-                    Add Bill
-                  </button>
+
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground/70 mb-1">
+                      {txType === 'Payment' ? 'Mode' : 'Reference / Details'}
+                    </label>
+                    {txType === 'Payment' ? (
+                      <select 
+                        value={paymentMode} 
+                        onChange={(e) => setPaymentMode(e.target.value)}
+                        className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent appearance-none text-sm"
+                      >
+                        <option value="Cash">Cash</option>
+                        <option value="UPI">UPI / GPay</option>
+                        <option value="NEFT">Bank Transfer (NEFT/RTGS)</option>
+                        <option value="Cheque">Cheque</option>
+                      </select>
+                    ) : (
+                      <input 
+                        type="text" 
+                        value={refNumber}
+                        onChange={(e) => setRefNumber(e.target.value)}
+                        className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                        placeholder="e.g. INV-1002"
+                      />
+                    )}
+                  </div>
+                  {txType === 'Payment' && (
+                    <div>
+                      <label className="block text-xs font-medium text-foreground/70 mb-1">Reference (Optional)</label>
+                      <input 
+                        type="text" 
+                        value={refNumber}
+                        onChange={(e) => setRefNumber(e.target.value)}
+                        className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                        placeholder="Txn ID or Cheque No"
+                      />
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-foreground/60 mt-4">Enter a manual amount. "Receive Payment" lowers the balance. "Add Bill" increases the balance.</p>
+                
+                <button 
+                  onClick={recordTransaction}
+                  className={`w-full py-2.5 font-bold rounded-lg transition-all shadow-sm border ${
+                    txType === 'Payment' || txType === 'Credit Note'
+                      ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/30'
+                      : 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30'
+                  }`}
+                >
+                  Record {txType}
+                </button>
               </div>
 
               {/* Custom Pricing Card */}
@@ -477,12 +536,21 @@ export default function LedgerPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTransactions.map((tx: any) => (
+                    {filteredTransactions.map((tx: any) => {
+                      const isReducer = tx.type === 'Payment' || tx.type === 'Credit Note';
+                      return (
                       <tr key={tx.id || tx.date} className="border-b border-panel-border/30 hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-foreground/80">{tx.date}</td>
-                        <td className="px-6 py-4 font-medium">{tx.description}</td>
+                        <td className="px-6 py-4 font-medium">
+                          {tx.description}
+                          {tx.paymentMode && (
+                            <span className="ml-2 px-2 py-0.5 bg-accent/10 text-accent rounded text-[10px] uppercase font-bold tracking-wider">
+                              {tx.paymentMode}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${tx.type === 'Payment' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide whitespace-nowrap ${isReducer ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                             {tx.type}
                           </span>
                         </td>
@@ -490,7 +558,7 @@ export default function LedgerPage() {
                           {tx.amount > 0 ? tx.amount.toLocaleString() : `(${Math.abs(tx.amount).toLocaleString()})`}
                         </td>
                       </tr>
-                    ))}
+                    )})}
                     {filteredTransactions.length === 0 && (
                       <tr>
                         <td colSpan={4} className="px-6 py-8 text-center text-foreground/50">No transactions recorded in this period.</td>

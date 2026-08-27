@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit } from 'lucide-react';
+import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2 } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 
 export default function SettingsPage() {
@@ -18,11 +18,17 @@ export default function SettingsPage() {
     gstRate: 18.0
   });
 
+  const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
+
   useEffect(() => {
     async function loadSettings() {
       const data = await fetchData('settings');
       if (data) {
         setFormData(data);
+      }
+      const rec = await fetchData('settings/recurring_expenses');
+      if (rec) {
+        setRecurringExpenses(Object.values(rec));
       }
       setLoading(false);
     }
@@ -40,7 +46,13 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setIsSaving(true);
+    // Convert array back to object for firebase, or just save as array if Firebase accepts (Firebase accepts arrays but objects are better)
+    const recObj: any = {};
+    recurringExpenses.forEach(r => { recObj[r.id] = r; });
+    
+    await writeData('settings/recurring_expenses', recObj);
     const result = await writeData('settings', formData);
+    
     setIsSaving(false);
     if (result.success) {
       setSaved(true);
@@ -48,6 +60,26 @@ export default function SettingsPage() {
     } else {
       alert("Failed to save settings");
     }
+  };
+
+  const addRecurringExpense = () => {
+    setRecurringExpenses([...recurringExpenses, {
+      id: Date.now().toString(),
+      desc: '',
+      category: 'Rent',
+      amount: '',
+      dayOfMonth: 1
+    }]);
+  };
+
+  const updateRecurring = (id: string, field: string, value: any) => {
+    setRecurringExpenses(recurringExpenses.map(r => r.id === id ? { ...r, [field]: value } : r));
+    setSaved(false);
+  };
+
+  const removeRecurring = (id: string) => {
+    setRecurringExpenses(recurringExpenses.filter(r => r.id !== id));
+    setSaved(false);
   };
 
   if (loading) {
@@ -152,8 +184,84 @@ export default function SettingsPage() {
             <p className="text-xs text-foreground/50 mt-2">This will automatically increment when a new invoice is generated.</p>
           </div>
         </div>
+      </div>
 
-        <div className="mt-10 flex items-center justify-end gap-4">
+      {/* Recurring Expenses Section */}
+      <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg mt-8">
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-panel-border/50">
+          <div className="flex items-center gap-3">
+            <Repeat size={24} className="text-accent" />
+            <h2 className="text-xl font-bold text-white">Recurring Expenses (Auto-Log)</h2>
+          </div>
+          <button 
+            onClick={addRecurringExpense}
+            className="px-4 py-2 bg-accent/20 text-accent font-bold rounded-lg hover:bg-accent/30 flex items-center gap-2 text-sm"
+          >
+            <Plus size={16} /> Add Template
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {recurringExpenses.length === 0 ? (
+            <p className="text-foreground/50 text-center py-4">No recurring expenses set up.</p>
+          ) : (
+            recurringExpenses.map((r, index) => (
+              <div key={r.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-black/20 p-4 rounded-lg border border-panel-border/50">
+                <div className="md:col-span-4">
+                  <label className="block text-xs font-medium text-foreground/70 mb-1">Description</label>
+                  <input 
+                    type="text" 
+                    value={r.desc} 
+                    onChange={e => updateRecurring(r.id, 'desc', e.target.value)}
+                    placeholder="e.g. Office Rent"
+                    className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-medium text-foreground/70 mb-1">Category</label>
+                  <select 
+                    value={r.category} 
+                    onChange={e => updateRecurring(r.id, 'category', e.target.value)}
+                    className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                  >
+                    <option value="Rent">Rent</option>
+                    <option value="Salary">Salary</option>
+                    <option value="EMI">EMI</option>
+                    <option value="Software">Software/Subscriptions</option>
+                    <option value="Utilities">Utilities</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-foreground/70 mb-1">Amount (₹)</label>
+                  <input 
+                    type="number" 
+                    value={r.amount} 
+                    onChange={e => updateRecurring(r.id, 'amount', Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-foreground/70 mb-1">Day of Month</label>
+                  <input 
+                    type="number" 
+                    min="1" max="31"
+                    value={r.dayOfMonth} 
+                    onChange={e => updateRecurring(r.id, 'dayOfMonth', Number(e.target.value))}
+                    className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                  />
+                </div>
+                <div className="md:col-span-1 flex justify-end pb-1">
+                  <button onClick={() => removeRecurring(r.id)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="mt-10 flex items-center justify-end gap-4 border-t border-panel-border/50 pt-8">
           {saved && (
             <span className="text-green-400 flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
               <CheckCircle2 size={18} /> Settings Saved successfully

@@ -15,6 +15,8 @@ export function cn(...inputs: ClassValue[]) {
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Ledger', href: '/ledger', icon: Users },
+  { name: 'Aging Report', href: '/aging-report', icon: Users },
+  { name: 'Bank Book', href: '/bank-book', icon: ReceiptIndianRupee },
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Expenses', href: '/expenses', icon: ReceiptIndianRupee },
   { name: 'Settings', href: '/settings', icon: Settings },

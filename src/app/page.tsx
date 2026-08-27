@@ -79,8 +79,50 @@ export default function Home() {
           lowStockCount: lowStock,
           overdueCount: overdue
         });
+
+        // Lazy evaluation of recurring expenses
+        const recurring = await fetchData('settings/recurring_expenses');
+        if (recurring) {
+          const allExpenses = await fetchData('expenses') || [];
+          const expensesArray = Array.isArray(allExpenses) ? allExpenses : Object.values(allExpenses);
+          
+          let updatedExpenses = [...expensesArray];
+          let expensesChanged = false;
+
+          Object.values(recurring).forEach((rec: any) => {
+            const dayOfMonth = Number(rec.dayOfMonth) || 1;
+            if (now.getDate() >= dayOfMonth) {
+              const currentMonthPrefix = now.toISOString().substring(0, 7); // YYYY-MM
+              
+              // Check if already logged this month
+              const alreadyLogged = expensesArray.some(exp => 
+                exp.desc === `[Auto] ${rec.desc}` && exp.date.startsWith(currentMonthPrefix)
+              );
+
+              if (!alreadyLogged) {
+                updatedExpenses.unshift({
+                  id: Date.now().toString() + Math.random().toString(),
+                  date: `${currentMonthPrefix}-${String(dayOfMonth).padStart(2, '0')}`,
+                  category: rec.category,
+                  amount: Number(rec.amount) || 0,
+                  desc: `[Auto] ${rec.desc}`
+                });
+                expensesChanged = true;
+              }
+            }
+          });
+
+          if (expensesChanged) {
+            // Write back to Firebase
+            // We use the dynamic API to write data
+            const { writeData } = await import('@/lib/firebase');
+            await writeData('expenses', updatedExpenses);
+            console.log("Logged automated recurring expenses");
+          }
+        }
+
       } catch (err) {
-        console.error("Failed to load KPIs", err);
+        console.error("Failed to load KPIs or process recurring expenses", err);
       }
     }
     loadKPIs();
