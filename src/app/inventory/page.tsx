@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera, FileSpreadsheet, MessageCircle, TrendingUp, ShoppingCart, Send } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera, FileSpreadsheet, MessageCircle, TrendingUp, ShoppingCart, Send, ShoppingBag, Trash2 } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 import { BillUploadModal } from '@/components/BillUploadModal';
 import * as xlsx from 'xlsx';
@@ -13,8 +13,49 @@ export default function InventoryPage() {
   const [suppliers, setSuppliers] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [orderSupplier, setOrderSupplier] = useState('');
-  const [orderMessage, setOrderMessage] = useState('');
+  
+  // Shopping Cart State
+  const [orderCart, setOrderCart] = useState<Record<string, {item: any, orderQty: number}>>({});
+
+  const addToCart = (item: any) => {
+    setOrderCart(prev => {
+      const current = prev[item.id]?.orderQty || 0;
+      return {
+        ...prev,
+        [item.id]: { item, orderQty: current + 1 }
+      };
+    });
+  };
+
+  const removeFromCart = (itemId: string) => {
+    setOrderCart(prev => {
+      const newCart = { ...prev };
+      delete newCart[itemId];
+      return newCart;
+    });
+  };
+
+  const updateCartQty = (itemId: string, change: number) => {
+    setOrderCart(prev => {
+      if (!prev[itemId]) return prev;
+      const current = prev[itemId].orderQty;
+      const newQty = Math.max(1, current + change);
+      return {
+        ...prev,
+        [itemId]: { ...prev[itemId], orderQty: newQty }
+      };
+    });
+  };
+
+  const cartBySupplier = useMemo(() => {
+    const grouped: Record<string, {item: any, orderQty: number}[]> = {};
+    Object.values(orderCart).forEach(cartItem => {
+      const suppId = cartItem.item.supplierId || 'unassigned';
+      if (!grouped[suppId]) grouped[suppId] = [];
+      grouped[suppId].push(cartItem);
+    });
+    return grouped;
+  }, [orderCart]);
 
   const updateStock = async (itemId: string, itemName: string, currentQty: number, change: number) => {
     const newQty = Math.max(0, currentQty + change);
@@ -281,15 +322,13 @@ export default function InventoryPage() {
                             >
                               <Plus size={16} />
                             </button>
-                            {isLow && (
-                              <button
-                                onClick={() => handleReorder(item)}
-                                className="p-1.5 bg-green-500/20 border border-green-500/30 rounded-md text-green-400 hover:bg-green-500/30 transition-colors ml-2 flex items-center gap-1 text-xs font-bold"
-                                title="Reorder via WhatsApp"
-                              >
-                                <MessageCircle size={16} />
-                              </button>
-                            )}
+                            <button
+                              onClick={() => addToCart(item)}
+                              className={`p-1.5 border rounded-md transition-colors ml-2 flex items-center gap-1 text-xs font-bold ${isLow ? 'bg-orange-500/20 border-orange-500/30 text-orange-400 hover:bg-orange-500/30' : 'bg-accent/20 border-accent/30 text-accent hover:bg-accent/30'}`}
+                              title="Add to Reorder Cart"
+                            >
+                              <ShoppingCart size={16} />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -308,49 +347,85 @@ export default function InventoryPage() {
 
         {/* Create Order Card */}
         <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg lg:col-span-1 h-[600px] flex flex-col">
-          <h2 className="text-lg font-bold mb-4 text-white flex items-center gap-2">
-            <ShoppingCart size={18} className="text-accent" /> Create Order
+          <h2 className="text-lg font-bold mb-4 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingBag size={18} className="text-accent" /> Reorder Cart
+            </div>
+            {Object.keys(orderCart).length > 0 && (
+              <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded-md">
+                {Object.keys(orderCart).length} items
+              </span>
+            )}
           </h2>
-          <div className="flex-1 flex flex-col gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground/70 mb-2">Select Supplier</label>
-              <select 
-                value={orderSupplier}
-                onChange={e => setOrderSupplier(e.target.value)}
-                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent appearance-none custom-scrollbar"
-              >
-                <option value="">-- Choose Supplier --</option>
-                {Object.values(suppliers).map((s: any) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1 flex flex-col">
-              <label className="block text-sm font-medium text-foreground/70 mb-2">Order Details</label>
-              <textarea 
-                value={orderMessage}
-                onChange={e => setOrderMessage(e.target.value)}
-                placeholder="e.g. Please send 10 units of Aquazir White Blank 14mm..."
-                className="w-full flex-1 bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent custom-scrollbar resize-none"
-              ></textarea>
-            </div>
-            <button 
-              onClick={() => {
-                if (!orderSupplier) return alert("Please select a supplier first.");
-                const supplier = suppliers[orderSupplier];
-                if (!supplier || !supplier.phone) return alert("Selected supplier has no phone number.");
+          
+          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-2">
+            {Object.keys(cartBySupplier).length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-foreground/50 space-y-3">
+                <ShoppingCart size={48} className="opacity-20" />
+                <p>Your reorder cart is empty.</p>
+                <p className="text-xs">Click the cart icon on any item to add it here.</p>
+              </div>
+            ) : (
+              Object.entries(cartBySupplier).map(([suppId, items]) => {
+                const supplier = suppliers[suppId];
+                const suppName = supplier?.name || "Unassigned Supplier";
+                const suppPhone = supplier?.phone;
                 
-                let phone = supplier.phone;
-                if (!phone.startsWith('+')) phone = '+91' + phone;
-                
-                const text = `Hello ${supplier.name},\n\n${orderMessage}\n\n- Densum Digital Lab`;
-                window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`, '_blank');
-              }}
-              disabled={!orderSupplier || !orderMessage.trim()}
-              className="w-full py-3 bg-green-500/20 text-green-400 font-bold rounded-xl hover:bg-green-500/30 transition-all border border-green-500/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send size={18} /> Send via WhatsApp
-            </button>
+                return (
+                  <div key={suppId} className="bg-black/30 border border-panel-border rounded-lg overflow-hidden">
+                    <div className="bg-black/40 px-3 py-2 border-b border-panel-border/50 font-bold text-sm text-white flex justify-between items-center">
+                      <span className="truncate pr-2">{suppName}</span>
+                      <span className="text-xs text-foreground/50 shrink-0">{items.length} items</span>
+                    </div>
+                    <div className="p-2 space-y-2">
+                      {items.map(cartItem => (
+                        <div key={cartItem.item.id} className="flex items-center justify-between gap-2 text-sm bg-panel border border-panel-border/50 p-2 rounded-md">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white truncate" title={cartItem.item.name}>{cartItem.item.name}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => updateCartQty(cartItem.item.id, -1)} className="p-1 text-foreground/50 hover:text-white bg-black/40 rounded">
+                              <Minus size={12} />
+                            </button>
+                            <span className="w-6 text-center text-accent font-bold">{cartItem.orderQty}</span>
+                            <button onClick={() => updateCartQty(cartItem.item.id, 1)} className="p-1 text-foreground/50 hover:text-white bg-black/40 rounded">
+                              <Plus size={12} />
+                            </button>
+                            <button onClick={() => removeFromCart(cartItem.item.id)} className="p-1 ml-1 text-red-400 hover:bg-red-500/20 rounded">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="p-2 bg-black/20 border-t border-panel-border/50">
+                      <button 
+                        onClick={() => {
+                          if (suppId === 'unassigned' || !suppPhone) {
+                            alert(suppId === 'unassigned' 
+                              ? "These items don't have a supplier assigned. Please update their supplier first." 
+                              : `Supplier ${suppName} has no phone number saved.`);
+                            return;
+                          }
+                          
+                          let phone = suppPhone;
+                          if (!phone.startsWith('+')) phone = '+91' + phone;
+                          
+                          const itemList = items.map(i => `- ${i.orderQty}x ${i.item.name}`).join('\n');
+                          const text = `Hello ${suppName},\n\nPlease process an order for the following items:\n${itemList}\n\nLet us know the current rate and expected delivery.\n\n- Densum Digital Lab`;
+                          
+                          window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`, '_blank');
+                        }}
+                        disabled={suppId === 'unassigned' || !suppPhone}
+                        className="w-full py-2 bg-green-500/20 text-green-400 font-bold rounded-lg hover:bg-green-500/30 transition-all border border-green-500/30 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <MessageCircle size={16} /> Order from {suppName}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
