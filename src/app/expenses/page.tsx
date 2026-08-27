@@ -163,7 +163,7 @@ export default function ExpensesPage() {
               if (suppLedger && Array.isArray(suppLedger)) {
                 // Find and remove the matching transaction by refNumber or amount/date
                 const updatedLedger = suppLedger.filter(tx => 
-                  !(tx.type === 'Bill' && tx.refNumber === invoiceNo && tx.amount === billAmount)
+                  !(tx.type === 'Bill' && String(tx.refNumber) === String(invoiceNo) && Number(tx.amount) === Number(billAmount))
                 );
                 await writeData(`supplier_ledger/${supplierId}`, updatedLedger);
               }

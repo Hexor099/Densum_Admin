@@ -78,7 +78,7 @@ export default function PurchasesPage() {
         const suppLedger = await fetchData(`supplier_ledger/${supplierId}`);
         if (suppLedger && Array.isArray(suppLedger)) {
           const updatedLedger = suppLedger.filter(tx => 
-            !(tx.type === 'Bill' && tx.refNumber === bill.invoiceNo && tx.amount === billAmount)
+            !(tx.type === 'Bill' && String(tx.refNumber) === String(bill.invoiceNo) && Number(tx.amount) === Number(billAmount))
           );
           await writeData(`supplier_ledger/${supplierId}`, updatedLedger);
         }
