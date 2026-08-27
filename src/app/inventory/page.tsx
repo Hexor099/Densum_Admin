@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera, FileSpreadsheet, MessageCircle, TrendingUp } from 'lucide-react';
+import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera, FileSpreadsheet, MessageCircle, TrendingUp, ShoppingCart, Send } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 import { BillUploadModal } from '@/components/BillUploadModal';
 import * as xlsx from 'xlsx';
@@ -13,6 +13,8 @@ export default function InventoryPage() {
   const [suppliers, setSuppliers] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [orderSupplier, setOrderSupplier] = useState('');
+  const [orderMessage, setOrderMessage] = useState('');
 
   const updateStock = async (itemId: string, itemName: string, currentQty: number, change: number) => {
     const newQty = Math.max(0, currentQty + change);
@@ -304,20 +306,70 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* History Feed */}
+        {/* Create Order Card */}
         <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg lg:col-span-1 h-[600px] flex flex-col">
           <h2 className="text-lg font-bold mb-4 text-white flex items-center gap-2">
-            <History size={18} className="text-accent" /> Usage History
+            <ShoppingCart size={18} className="text-accent" /> Create Order
           </h2>
-          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
-            {history.length === 0 ? (
-              <div className="p-10 text-center text-foreground/50">No recent activity.</div>
-            ) : (
-              history.map(entry => (
+          <div className="flex-1 flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground/70 mb-2">Select Supplier</label>
+              <select 
+                value={orderSupplier}
+                onChange={e => setOrderSupplier(e.target.value)}
+                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent appearance-none custom-scrollbar"
+              >
+                <option value="">-- Choose Supplier --</option>
+                {Object.values(suppliers).map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 flex flex-col">
+              <label className="block text-sm font-medium text-foreground/70 mb-2">Order Details</label>
+              <textarea 
+                value={orderMessage}
+                onChange={e => setOrderMessage(e.target.value)}
+                placeholder="e.g. Please send 10 units of Aquazir White Blank 14mm..."
+                className="w-full flex-1 bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent custom-scrollbar resize-none"
+              ></textarea>
+            </div>
+            <button 
+              onClick={() => {
+                if (!orderSupplier) return alert("Please select a supplier first.");
+                const supplier = suppliers[orderSupplier];
+                if (!supplier || !supplier.phone) return alert("Selected supplier has no phone number.");
+                
+                let phone = supplier.phone;
+                if (!phone.startsWith('+')) phone = '+91' + phone;
+                
+                const text = `Hello ${supplier.name},\n\n${orderMessage}\n\n- Densum Digital Lab`;
+                window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`, '_blank');
+              }}
+              disabled={!orderSupplier || !orderMessage.trim()}
+              className="w-full py-3 bg-green-500/20 text-green-400 font-bold rounded-xl hover:bg-green-500/30 transition-all border border-green-500/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Send size={18} /> Send via WhatsApp
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* History Feed (Moved to Bottom) */}
+      <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg flex flex-col">
+        <h2 className="text-lg font-bold mb-4 text-white flex items-center gap-2">
+          <History size={18} className="text-accent" /> Usage History
+        </h2>
+        <div className="overflow-x-auto">
+          {history.length === 0 ? (
+            <div className="p-10 text-center text-foreground/50">No recent activity.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {history.slice(0, 20).map(entry => (
                 <div key={entry.id} className="p-4 rounded-xl bg-black/20 border border-panel-border/50 hover:border-accent/30 transition-colors">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="font-semibold text-white text-sm">{entry.item}</span>
-                    <span className={`text-xs font-bold px-2 py-1 rounded-md ${entry.change > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                    <span className="font-semibold text-white text-sm line-clamp-1 flex-1 pr-2" title={entry.item}>{entry.item}</span>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-md shrink-0 ${entry.change > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                       {entry.change > 0 ? `+${entry.change}` : entry.change}
                     </span>
                   </div>
@@ -326,10 +378,15 @@ export default function InventoryPage() {
                     <span>{entry.date}</span>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
+        {history.length > 20 && (
+          <div className="mt-4 text-center text-xs text-foreground/50">
+            Showing last 20 activities...
+          </div>
+        )}
       </div>
 
       {isModalOpen && (
