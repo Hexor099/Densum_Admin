@@ -24,8 +24,10 @@ export default function ExpensesPage() {
       if (ledger) {
         Object.values(ledger).forEach((txs: any) => {
           txs.forEach((tx: any) => {
-            if (tx.type === 'Charge' || tx.type === 'Invoice') {
-              rev += tx.amount;
+            if (tx.type === 'Payment') {
+              rev += Math.abs(tx.amount);
+            } else if (tx.type === 'Charge' || tx.type === 'Invoice') {
+              rev += tx.amount > 0 ? tx.amount : Math.abs(tx.amount);
             }
           });
         });
