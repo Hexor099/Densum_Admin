@@ -46,12 +46,13 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    // Convert array back to object for firebase, or just save as array if Firebase accepts (Firebase accepts arrays but objects are better)
+    
     const recObj: any = {};
     recurringExpenses.forEach(r => { recObj[r.id] = r; });
     
-    await writeData('settings/recurring_expenses', recObj);
-    const result = await writeData('settings', formData);
+    // Save everything together to prevent Firebase from overwriting child nodes
+    const finalData = { ...formData, recurring_expenses: recObj };
+    const result = await writeData('settings', finalData);
     
     setIsSaving(false);
     if (result.success) {
