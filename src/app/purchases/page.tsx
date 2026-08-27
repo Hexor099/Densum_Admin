@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { Receipt, Search, Image as ImageIcon, ExternalLink, Calendar } from 'lucide-react';
-import { fetchData } from '@/lib/firebase';
+import { Receipt, Search, Image as ImageIcon, ExternalLink, Calendar, Trash2 } from 'lucide-react';
+import { fetchData, writeData } from '@/lib/firebase';
 
 export default function PurchasesPage() {
   const [bills, setBills] = useState<any[]>([]);
@@ -33,6 +33,75 @@ export default function PurchasesPage() {
       (b.invoiceNo || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [bills, searchTerm]);
+
+  const handleDeleteBill = async (bill: any) => {
+    if (!confirm(`Are you sure you want to delete Invoice #${bill.invoiceNo || 'Unknown'} from ${bill.supplierName || 'Unknown'}?\n\nThis will also:\n1. Revert the inventory quantities\n2. Delete the associated Expense log\n3. Revert the Supplier balance`)) {
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // 1. Revert Inventory
+      if (bill.items && Array.isArray(bill.items)) {
+        await Promise.all(bill.items.map(async (item: any) => {
+          if (!item || !item.name) return;
+          const itemId = item.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          const existingData = await fetchData(`lab_catalog/${itemId}`);
+          if (existingData) {
+            const currentQty = existingData.qty || 0;
+            const revertedQty = Math.max(0, currentQty - (item.qty || 0));
+            await writeData(`lab_catalog/${itemId}/qty`, revertedQty);
+          }
+        }));
+      }
+
+      // 2. Delete the associated Expense
+      const expenses = await fetchData('expenses');
+      if (expenses) {
+        const expensesArray = Array.isArray(expenses) ? expenses : Object.values(expenses);
+        const updatedExpenses = expensesArray.filter((e: any) => {
+          // Look for matching invoice number in the description
+          const match = e.desc?.match(/\(Invoice #(.*?)\)/);
+          if (match && String(match[1]).trim() === String(bill.invoiceNo).trim()) {
+            return false; // Remove it
+          }
+          return true; // Keep it
+        });
+        await writeData('expenses', updatedExpenses);
+      }
+
+      // 3. Revert Supplier Ledger and Balance
+      if (bill.supplierId) {
+        const supplierId = bill.supplierId;
+        const billAmount = bill.totalAmount || 0;
+        
+        const suppLedger = await fetchData(`supplier_ledger/${supplierId}`);
+        if (suppLedger && Array.isArray(suppLedger)) {
+          const updatedLedger = suppLedger.filter(tx => 
+            !(tx.type === 'Bill' && tx.refNumber === bill.invoiceNo && tx.amount === billAmount)
+          );
+          await writeData(`supplier_ledger/${supplierId}`, updatedLedger);
+        }
+        
+        const currentSupplier = await fetchData(`suppliers/${supplierId}`);
+        if (currentSupplier) {
+          const currentBalance = Number(currentSupplier.balance) || 0;
+          await writeData(`suppliers/${supplierId}/balance`, currentBalance - billAmount);
+        }
+      }
+
+      // 4. Delete the Bill itself
+      await writeData(`bills/${bill.id}`, null);
+      
+      // Update local state
+      setBills(prev => prev.filter(b => b.id !== bill.id));
+    } catch (err) {
+      console.error("Failed to delete bill:", err);
+      alert("An error occurred while deleting the bill.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return <div className="p-10 text-center text-foreground/50 animate-pulse">Loading Purchase Register...</div>;
@@ -103,6 +172,13 @@ export default function PurchasesPage() {
                         title="View Details"
                       >
                         <ExternalLink size={18} />
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteBill(b); }}
+                        className="p-2 text-foreground/50 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                        title="Delete Bill"
+                      >
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </td>

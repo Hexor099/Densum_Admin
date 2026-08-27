@@ -152,6 +152,29 @@ export default function ExpensesPage() {
             
             // Step 3: Delete bill
             await writeData(`bills/${billId}`, null);
+
+            // Step 3.5: Revert Supplier Ledger and Balance
+            if (billData && billData.supplierId) {
+              const supplierId = billData.supplierId;
+              const billAmount = billData.totalAmount || 0;
+              
+              // Remove the transaction from supplier_ledger
+              const suppLedger = await fetchData(`supplier_ledger/${supplierId}`);
+              if (suppLedger && Array.isArray(suppLedger)) {
+                // Find and remove the matching transaction by refNumber or amount/date
+                const updatedLedger = suppLedger.filter(tx => 
+                  !(tx.type === 'Bill' && tx.refNumber === invoiceNo && tx.amount === billAmount)
+                );
+                await writeData(`supplier_ledger/${supplierId}`, updatedLedger);
+              }
+              
+              // Reduce the supplier balance
+              const currentSupplier = await fetchData(`suppliers/${supplierId}`);
+              if (currentSupplier) {
+                const currentBalance = Number(currentSupplier.balance) || 0;
+                await writeData(`suppliers/${supplierId}/balance`, currentBalance - billAmount);
+              }
+            }
           } else {
             alert(`Note: The original bill for Invoice #${invoiceNo} could not be found. The expense will still be deleted.`);
           }
