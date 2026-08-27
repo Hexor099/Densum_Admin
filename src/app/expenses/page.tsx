@@ -115,8 +115,8 @@ export default function ExpensesPage() {
 
   const handleDeleteExpense = async (expense: any) => {
     try {
-      // Determine if this is an Auto-logged Bill Scan expense
-      const billMatch = expense.desc?.match(/Auto-logged from Bill Scan \(Invoice #(.*?)\)/);
+      // Determine if this is a Bill Scan expense (contains Invoice #)
+      const billMatch = expense.desc?.match(/\(Invoice #(.*?)\)/);
       
       if (billMatch) {
         const invoiceNo = String(billMatch[1]).trim();
@@ -178,7 +178,7 @@ export default function ExpensesPage() {
   };
 
   const handleRowDoubleClick = async (expense: any) => {
-    const billMatch = expense.desc?.match(/Auto-logged from Bill Scan \(Invoice #(.*?)\)/);
+    const billMatch = expense.desc?.match(/\(Invoice #(.*?)\)/);
     if (billMatch) {
       const invoiceNo = String(billMatch[1]).trim();
       const allBills = await fetchData('bills');
@@ -393,7 +393,7 @@ export default function ExpensesPage() {
               </thead>
               <tbody>
                 {[...filteredExpenses].reverse().map((expense) => {
-                  const isBill = expense.desc?.includes('Auto-logged from Bill Scan');
+                  const isBill = expense.desc?.includes('(Invoice #');
                   return (
                   <tr 
                     key={expense.id || expense.date + expense.amount} 
