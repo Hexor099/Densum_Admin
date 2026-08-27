@@ -129,7 +129,16 @@ export default function PurchasesPage() {
               </div>
               <div className="flex-1 p-4 overflow-auto custom-scrollbar flex items-center justify-center">
                 {selectedBill.image ? (
-                  <img src={selectedBill.image} alt="Scanned Bill" className="max-w-full h-auto object-contain rounded border border-panel-border" />
+                  selectedBill.image.startsWith('data:application/pdf') ? (
+                    <object data={selectedBill.image} type="application/pdf" className="w-full h-full min-h-[400px] rounded border border-panel-border">
+                      <div className="text-center p-4">
+                        <p className="text-foreground/70 mb-2">PDF cannot be displayed directly.</p>
+                        <a href={selectedBill.image} download={`Bill-${selectedBill.invoiceNo || 'Unknown'}.pdf`} className="text-accent hover:underline">Download PDF</a>
+                      </div>
+                    </object>
+                  ) : (
+                    <img src={selectedBill.image} alt="Scanned Bill" className="max-w-full h-auto object-contain rounded border border-panel-border" />
+                  )
                 ) : (
                   <p className="text-foreground/50">No image available.</p>
                 )}

@@ -21,6 +21,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [base64Image, setBase64Image] = useState<string | null>(null);
+  const [fullDataUrl, setFullDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parsedBill, setParsedBill] = useState<ParsedBill | null>(null);
@@ -45,15 +46,52 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       setFile(selectedFile);
       setPreviewUrl(URL.createObjectURL(selectedFile));
 
-      // Convert to Base64
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        // Strip the data URL prefix for Gemini API
-        const base64Data = base64String.split(',')[1];
-        setBase64Image(base64Data);
-      };
-      reader.readAsDataURL(selectedFile);
+      if (selectedFile.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = (event) => {
+          const img = new Image();
+          img.src = event.target?.result as string;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 1200;
+            const MAX_HEIGHT = 1600;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height;
+                height = MAX_HEIGHT;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            
+            // compress to JPEG with 0.7 quality
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            setFullDataUrl(dataUrl);
+            setBase64Image(dataUrl.split(',')[1]);
+          };
+        };
+        reader.readAsDataURL(selectedFile);
+      } else {
+        // For PDFs or other types, just read directly
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          setFullDataUrl(base64String);
+          const base64Data = base64String.split(',')[1];
+          setBase64Image(base64Data);
+        };
+        reader.readAsDataURL(selectedFile);
+      }
     }
   };
 
@@ -140,7 +178,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         supplierName: supplierName,
         totalAmount: parsedBill.totalAmount,
         items: parsedBill.items,
-        image: `data:${file?.type};base64,${base64Image}` // Save small base64 directly to RTDB (careful with large images)
+        image: fullDataUrl // Use the exact original data URL
       });
 
       // Update Supplier Ledger and Balance
