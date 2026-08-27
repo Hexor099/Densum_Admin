@@ -1,11 +1,90 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { ExcelUploader } from "@/components/ExcelUploader";
+import { fetchData } from "@/lib/firebase";
+import { TrendingUp, AlertTriangle, AlertCircle, Banknote } from "lucide-react";
 
 export default function Home() {
   const [dashboardData, setDashboardData] = useState<Record<string, any[]> | null>(null);
+  const [kpis, setKpis] = useState({
+    totalOutstanding: 0,
+    thisMonthRevenue: 0,
+    lastMonthRevenue: 0,
+    lowStockCount: 0,
+    overdueCount: 0,
+  });
+
+  useEffect(() => {
+    async function loadKPIs() {
+      try {
+        const docs = await fetchData('doctors') || {};
+        const ledger = await fetchData('ledger') || {};
+        const catalog = await fetchData('lab_catalog') || {};
+
+        let outstanding = 0;
+        let overdue = 0;
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        Object.keys(docs).forEach(docId => {
+          const bal = Number(docs[docId]?.balance) || 0;
+          if (bal > 0) {
+            outstanding += bal;
+            const txs = ledger[docId] || [];
+            const hasRecentPayment = txs.some((tx: any) => {
+              if (tx.type === 'Payment') {
+                const txDate = new Date(tx.date);
+                return txDate >= thirtyDaysAgo;
+              }
+              return false;
+            });
+            if (!hasRecentPayment) overdue++;
+          }
+        });
+
+        let revThisMonth = 0;
+        let revLastMonth = 0;
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+        Object.keys(ledger).forEach(docId => {
+          (ledger[docId] || []).forEach((tx: any) => {
+            if (tx.type === 'Charge' || tx.type === 'Invoice' || tx.type === 'Invoice Generated' || tx.type === 'Bill') {
+              const txDate = new Date(tx.date);
+              if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+                revThisMonth += Number(tx.amount) || 0;
+              } else if (txDate.getMonth() === lastMonth && txDate.getFullYear() === lastMonthYear) {
+                revLastMonth += Number(tx.amount) || 0;
+              }
+            }
+          });
+        });
+
+        let lowStock = 0;
+        Object.keys(catalog).forEach(itemId => {
+          const item = catalog[itemId];
+          if ((Number(item.qty) || 0) <= (Number(item.min_limit) || 5)) {
+            lowStock++;
+          }
+        });
+
+        setKpis({
+          totalOutstanding: outstanding,
+          thisMonthRevenue: revThisMonth,
+          lastMonthRevenue: revLastMonth,
+          lowStockCount: lowStock,
+          overdueCount: overdue
+        });
+      } catch (err) {
+        console.error("Failed to load KPIs", err);
+      }
+    }
+    loadKPIs();
+  }, []);
 
   const topDoctors = useMemo(() => {
     if (!dashboardData) return [];
@@ -34,6 +113,48 @@ export default function Home() {
         <h1 className="text-3xl font-bold text-white mb-2">Dashboard & Billing</h1>
         <p className="text-foreground/70">Overview of lab performance and invoice generation.</p>
       </header>
+
+      {/* KPI Widgets */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-foreground/70 font-semibold text-sm">Total Outstanding</h3>
+            <Banknote size={18} className="text-red-400" />
+          </div>
+          <div className="text-2xl font-bold text-red-400">₹{kpis.totalOutstanding.toLocaleString()}</div>
+        </div>
+
+        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-foreground/70 font-semibold text-sm">Revenue (This Month)</h3>
+            <TrendingUp size={18} className="text-green-400" />
+          </div>
+          <div className="text-2xl font-bold text-green-400">₹{kpis.thisMonthRevenue.toLocaleString()}</div>
+          <div className="text-xs text-foreground/50 mt-1">
+            {kpis.lastMonthRevenue > 0 ? (
+              <span className={kpis.thisMonthRevenue >= kpis.lastMonthRevenue ? 'text-green-400' : 'text-red-400'}>
+                {(((kpis.thisMonthRevenue - kpis.lastMonthRevenue) / kpis.lastMonthRevenue) * 100).toFixed(1)}% vs last month
+              </span>
+            ) : "No data last month"}
+          </div>
+        </div>
+
+        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-foreground/70 font-semibold text-sm">Low Stock Items</h3>
+            <AlertTriangle size={18} className="text-orange-400" />
+          </div>
+          <div className="text-2xl font-bold text-orange-400">{kpis.lowStockCount}</div>
+        </div>
+
+        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-foreground/70 font-semibold text-sm">Overdue Payments (&gt;30d)</h3>
+            <AlertCircle size={18} className="text-purple-400" />
+          </div>
+          <div className="text-2xl font-bold text-purple-400">{kpis.overdueCount} <span className="text-sm font-normal text-foreground/50">doctors</span></div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

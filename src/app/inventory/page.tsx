@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera } from 'lucide-react';
+import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera, FileSpreadsheet } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 import { BillUploadModal } from '@/components/BillUploadModal';
+import * as xlsx from 'xlsx';
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,6 +113,26 @@ export default function InventoryPage() {
     (item.id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleExportExcel = () => {
+    if (filteredCatalog.length === 0) {
+      alert("No inventory items to export.");
+      return;
+    }
+    
+    const exportData = filteredCatalog.map(item => ({
+      'Item ID': item.id,
+      'Name': item.name || '-',
+      'Stock Qty': item.qty || 0,
+      'Min Limit': item.min_limit || 0,
+      'Last Purchase Rate (₹)': item.last_purchase_rate || '-'
+    }));
+
+    const worksheet = xlsx.utils.json_to_sheet(exportData);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Inventory");
+    xlsx.writeFile(workbook, `Inventory_Stock_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -134,6 +155,13 @@ export default function InventoryPage() {
           >
             <AlertTriangle size={20} />
             Clear Inventory
+          </button>
+          <button 
+            onClick={handleExportExcel}
+            className="w-full md:w-auto px-5 py-3 bg-green-500/20 text-green-400 font-bold rounded-xl hover:bg-green-500/30 transition-all border border-green-500/30 flex items-center justify-center gap-2"
+          >
+            <FileSpreadsheet size={20} />
+            Export
           </button>
           <button 
             onClick={() => setIsModalOpen(true)}

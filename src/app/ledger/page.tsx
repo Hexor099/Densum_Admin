@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { User, MessageCircle, DollarSign, FileText, Plus } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { User, MessageCircle, DollarSign, FileText, Plus, FileSpreadsheet, Calendar } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
+import * as xlsx from 'xlsx';
 
 export default function LedgerPage() {
   const [doctors, setDoctors] = useState<any>({});
@@ -16,6 +17,15 @@ export default function LedgerPage() {
   const [uniqueMaterials, setUniqueMaterials] = useState<string[]>([]);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const defaultFYStart = currentMonth >= 3 ? `${currentYear}-04-01` : `${currentYear - 1}-04-01`;
+  const defaultFYEnd = currentMonth >= 3 ? `${currentYear + 1}-03-31` : `${currentYear}-03-31`;
+
+  const [dateFrom, setDateFrom] = useState(defaultFYStart);
+  const [dateTo, setDateTo] = useState(defaultFYEnd);
 
   useEffect(() => {
     async function loadData() {
@@ -49,6 +59,43 @@ export default function LedgerPage() {
 
   const selectedDoc = doctors[selectedDocId] || {};
   const transactions = ledger[selectedDocId] || [];
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((tx: any) => tx.date >= dateFrom && tx.date <= dateTo);
+  }, [transactions, dateFrom, dateTo]);
+
+  const handleExportExcel = () => {
+    if (filteredTransactions.length === 0) {
+      alert("No transactions in the selected date range to export.");
+      return;
+    }
+    
+    const sortedTxs = [...filteredTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let runningBalance = 0; 
+    
+    // Calculate opening balance before dateFrom
+    transactions.forEach((tx: any) => {
+      if (tx.date < dateFrom) {
+        runningBalance += tx.amount;
+      }
+    });
+
+    const exportData = sortedTxs.map(tx => {
+      runningBalance += tx.amount;
+      return {
+        Date: tx.date,
+        Type: tx.type,
+        Description: tx.description,
+        'Amount (INR)': tx.amount,
+        'Running Balance (INR)': runningBalance
+      };
+    });
+
+    const worksheet = xlsx.utils.json_to_sheet(exportData);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Ledger");
+    xlsx.writeFile(workbook, `Ledger_${selectedDocId}_${dateFrom}_to_${dateTo}.xlsx`);
+  };
 
   const handleWhatsApp = async () => {
     if (!selectedDoc.phone) {
@@ -386,8 +433,38 @@ export default function LedgerPage() {
 
             {/* Ledger Table */}
             <div className="bg-panel rounded-xl border border-panel-border overflow-hidden shadow-lg">
-              <div className="p-5 border-b border-panel-border/50 bg-black/20">
+              <div className="p-5 border-b border-panel-border/50 bg-black/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <h3 className="font-bold text-white text-lg">Transaction History</h3>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2 bg-black/40 border border-panel-border rounded-lg px-3 py-1">
+                    <Calendar size={16} className="text-foreground/50" />
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="date" 
+                        value={dateFrom} 
+                        onChange={e => setDateFrom(e.target.value)}
+                        className="bg-transparent text-sm text-white focus:outline-none max-w-[120px]"
+                      />
+                      <span className="text-foreground/50 text-sm">to</span>
+                      <input 
+                        type="date" 
+                        value={dateTo} 
+                        onChange={e => setDateTo(e.target.value)}
+                        className="bg-transparent text-sm text-white focus:outline-none max-w-[120px]"
+                      />
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={handleExportExcel}
+                    className="px-4 py-1.5 bg-green-500/20 text-green-400 font-bold rounded-lg hover:bg-green-500/30 transition-all border border-green-500/30 flex items-center gap-2 text-sm"
+                    title="Download Excel"
+                  >
+                    <FileSpreadsheet size={16} />
+                    Export
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
@@ -400,7 +477,7 @@ export default function LedgerPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((tx: any) => (
+                    {filteredTransactions.map((tx: any) => (
                       <tr key={tx.id || tx.date} className="border-b border-panel-border/30 hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-foreground/80">{tx.date}</td>
                         <td className="px-6 py-4 font-medium">{tx.description}</td>
@@ -414,9 +491,9 @@ export default function LedgerPage() {
                         </td>
                       </tr>
                     ))}
-                    {transactions.length === 0 && (
+                    {filteredTransactions.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-foreground/50">No transactions recorded yet.</td>
+                        <td colSpan={4} className="px-6 py-8 text-center text-foreground/50">No transactions recorded in this period.</td>
                       </tr>
                     )}
                   </tbody>
