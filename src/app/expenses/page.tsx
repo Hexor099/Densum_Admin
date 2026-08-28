@@ -111,14 +111,14 @@ export default function ExpensesPage() {
       
       if (billMatch) {
         const invoiceNo = String(billMatch[1]).trim();
-        const confirmDelete = confirm(
+        const fullDelete = confirm(
           `This expense is linked to an AI Bill Scan (Invoice #${invoiceNo}).\n\n` +
-          `Deleting this will ALSO subtract the purchased items from your inventory and delete the bill history.\n\n` +
-          `Are you sure you want to proceed?`
+          `Do you want to delete the ENTIRE bill (reverts inventory and supplier balance)?\n\n` +
+          `(Click 'Cancel' if you ONLY want to delete this expense record because it's a duplicate)`
         );
-        if (!confirmDelete) return;
         
-        // Step 1: Find the matching bill
+        if (fullDelete) {
+          // Step 1: Find the matching bill
         const allBills = await fetchData('bills');
         if (allBills) {
           const billEntries = Object.entries(allBills);
@@ -165,6 +165,9 @@ export default function ExpensesPage() {
           } else {
             toast.info(`Note: The original bill for Invoice #${invoiceNo} could not be found. The expense will still be deleted.`);
           }
+        } else {
+          const onlyExpense = confirm(`Do you want to ONLY delete this expense record without modifying inventory or balances? (Use this to fix duplicates)`);
+          if (!onlyExpense) return;
         }
       } else {
         // Normal expense

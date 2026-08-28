@@ -42,6 +42,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
   }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isConfirming = useRef(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -121,7 +122,8 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
   };
 
   const handleConfirm = async () => {
-    if (!parsedBill) return;
+    if (!parsedBill || isConfirming.current) return;
+    isConfirming.current = true;
     setLoading(true);
     
     try {
@@ -137,6 +139,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
           if (isDuplicate) {
             setError(`Invoice #${parsedBill.invoiceNo} from this supplier has already been scanned and added to inventory!`);
             setLoading(false);
+            isConfirming.current = false;
             return;
           }
         }
@@ -233,6 +236,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
     } catch (err: any) {
       setError("Failed to save inventory to database: " + err.message);
       setLoading(false);
+      isConfirming.current = false;
     }
   };
 
