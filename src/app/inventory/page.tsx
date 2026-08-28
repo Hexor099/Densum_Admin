@@ -11,7 +11,19 @@ import * as xlsx from 'xlsx';
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const { catalog: storeCatalog, suppliers: storeSuppliers, refreshCatalog, inventory_history, refreshInventoryHistory, isInitialized, initializeStore } = useStore();
+  const { 
+    catalog: storeCatalog, 
+    suppliers: storeSuppliers, 
+    refreshCatalog, 
+    inventory_history, 
+    refreshInventoryHistory,
+    refreshBills,
+    refreshExpenses,
+    refreshSuppliers,
+    refreshSupplierLedger,
+    isInitialized, 
+    initializeStore 
+  } = useStore();
   
   const catalog = useMemo(() => {
     return Object.keys(storeCatalog).map(key => ({
@@ -111,6 +123,10 @@ export default function InventoryPage() {
     setLoading(true);
     await refreshCatalog();
     await refreshInventoryHistory();
+    await refreshBills();
+    await refreshExpenses();
+    await refreshSuppliers();
+    await refreshSupplierLedger();
     setLoading(false);
   };
 
