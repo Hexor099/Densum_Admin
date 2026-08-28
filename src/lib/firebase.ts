@@ -5,6 +5,7 @@ import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   databaseURL: "https://dentallabsync-default-rtdb.firebaseio.com/",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "dummy_api_key_for_build",
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
