@@ -6,7 +6,6 @@ import { fetchData, writeData } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useStore } from '@/store/useStore';
-import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
