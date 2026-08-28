@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { logoBase64 } from './logoBase64';
+import { getVal } from './utils';
 
 function parsePalmerNotation(teethStr: string) {
   if (!teethStr) return { left: '-', right: '', hasFDI: false };
@@ -46,7 +46,7 @@ function parsePalmerNotation(teethStr: string) {
   };
 }
 
-export function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any) {
+export async function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any) {
   const doc = new jsPDF();
   
   const labName = settings.labName || 'Densum Digital Lab';
@@ -65,7 +65,18 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
 
   // Header
   try {
-    doc.addImage(logoBase64, 'JPEG', 14, 8, 70, 22);
+    const response = await fetch('/logo.jpg');
+    if (response.ok) {
+      const blob = await response.blob();
+      const base64data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => resolve(reader.result as string);
+      });
+      doc.addImage(base64data, 'JPEG', 14, 8, 70, 22);
+    } else {
+      throw new Error("Logo not found");
+    }
   } catch (e) {
     doc.setFontSize(22);
     doc.setTextColor(0, 168, 232); // Densum Accent Cyan
@@ -105,21 +116,16 @@ export function generateInvoicePDF(data: any[], doctorName: string, doctorProfil
     const total = Number(row.Total) || 0;
     totalInclusive += total;
 
-    const getVal = (possibleKeys: string[]) => {
-      const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
-      return foundKey ? row[foundKey] : undefined;
-    };
-
-    const toothParsed = parsePalmerNotation(getVal(['tooth no', 'tooth no.']));
+    const toothParsed = parsePalmerNotation(getVal(row, ['tooth no', 'tooth no.']));
 
     return [
       String(idx + 1),
-      getVal(['received date']) || '-',
-      (getVal(['patient name']) || '-').substring(0, 18),
-      (getVal(['work material']) || '-').substring(0, 22),
+      getVal(row, ['received date']) || '-',
+      (getVal(row, ['patient name']) || '-').substring(0, 18),
+      (getVal(row, ['work material']) || '-').substring(0, 22),
       toothParsed.left,
       toothParsed.right,
-      String(getVal(['units']) || 0),
+      String(getVal(row, ['units']) || 0),
       Number(row['Rate']).toFixed(2),
       total.toFixed(2),
       toothParsed.hasFDI

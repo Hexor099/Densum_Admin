@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Receipt, Search, Image as ImageIcon, ExternalLink, Calendar, Trash2 } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
+import { toast } from 'sonner';
 
 export default function PurchasesPage() {
   const [bills, setBills] = useState<any[]>([]);
@@ -97,7 +98,7 @@ export default function PurchasesPage() {
       setBills(prev => prev.filter(b => b.id !== bill.id));
     } catch (err) {
       console.error("Failed to delete bill:", err);
-      alert("An error occurred while deleting the bill.");
+      toast.error("An error occurred while deleting the bill.");
     } finally {
       setLoading(false);
     }

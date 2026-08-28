@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
-import { fetchData, writeData } from '@/lib/firebase';
+import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
+import { getVal, generateId } from '@/lib/utils';
 
 export interface ExcelUploaderProps {
   onDataProcessed?: (data: Record<string, any[]>) => void;
@@ -97,9 +99,9 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     try {
       const res = await writeData('excelData', allSheetsData);
       if (!res.success) throw new Error("Failed to write to database. It might be too large or contain invalid characters.");
-      alert("Excel data successfully saved to the cloud! It will now load automatically on any PC.");
+      toast.success("Excel data successfully saved to the cloud! It will now load automatically on any PC.");
     } catch (err: any) {
-      alert("Failed to save to cloud: " + (err.message || "Unknown error"));
+      toast.error("Failed to save to cloud: " + (err.message || "Unknown error"));
     } finally {
       setIsSyncing(false);
     }
@@ -114,12 +116,12 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         const sheets = Object.keys(cloudData);
         setSheetNames(sheets);
         if (sheets.length > 0) setCurrentSheet(sheets[0]);
-        alert("Data successfully loaded from the cloud!");
+        toast.success("Data successfully loaded from the cloud!");
       } else {
-        alert("No data found in the cloud.");
+        toast.info("No data found in the cloud.");
       }
-    } catch (err) {
-      alert("Failed to load from cloud.");
+    } catch (error) {
+      toast.error("Failed to load from cloud.");
     } finally {
       setIsSyncing(false);
     }
@@ -132,13 +134,8 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     const enhanced: Record<string, any[]> = {};
     for (const sheet of Object.keys(allSheetsData)) {
       enhanced[sheet] = allSheetsData[sheet].map(row => {
-        const getVal = (possibleKeys: string[]) => {
-          const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
-          return foundKey ? row[foundKey] : undefined;
-        };
-
-        const units = Number(getVal(['units'])) || 0;
-        const material = String(getVal(['work material']) || '').trim();
+        const units = Number(getVal(row, ['units'])) || 0;
+        const material = String(getVal(row, ['work material']) || '').trim();
         const docPrices = doctorsData[sheet]?.prices || {};
         const rate = Number(docPrices[material]) || 0;
         const totalAmount = units * rate;
@@ -149,7 +146,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     if (onDataProcessed) {
       onDataProcessed(enhanced);
     }
-  }, [allSheetsData, doctorsData]);
+  }, [allSheetsData, doctorsData, onDataProcessed]);
 
   const currentData = allSheetsData && currentSheet ? allSheetsData[currentSheet] : null;
   const enhancedData = currentSheet ? allEnhancedData[currentSheet] : null;
@@ -194,11 +191,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const availableMonths = Array.from(new Set(
     Object.values(allEnhancedData || {}).flatMap(sheetData => 
       (sheetData || []).map(row => {
-        const getVal = (possibleKeys: string[]) => {
-          const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
-          return foundKey ? row[foundKey] : undefined;
-        };
-        const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
+        const dateVal = String(getVal(row, ['received date', 'date', 'order date']) || '');
         return getMonthYear(dateVal);
       })
     )
@@ -210,17 +203,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   // Filter data based on selected month
   const filteredData = enhancedData ? enhancedData.filter(row => {
     if (selectedMonth === 'All') return true;
-    const getVal = (possibleKeys: string[]) => {
-      const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
-      return foundKey ? row[foundKey] : undefined;
-    };
-    const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
+    const dateVal = String(getVal(row, ['received date', 'date', 'order date']) || '');
     return getMonthYear(dateVal) === selectedMonth;
   }) : null;
 
   const handleGeneratePDF = async () => {
     if (selectedMonth === 'All') {
-      alert("Please select a specific Billing Month first. You cannot generate a bill for 'All Months'.");
+      toast.error("Please select a specific Billing Month first. You cannot generate a bill for 'All Months'.");
       return;
     }
     
@@ -255,7 +244,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF with the corrected balance
         const tempDocProfile = { ...docProfile, balance: prevBalance };
-        const pdfBase64 = generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
+        const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
 
         // Send via WhatsApp
         if (tempDocProfile.phone) {
@@ -268,7 +257,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           const popup = window.open(url, '_blank');
           
           if (!popup) {
-            alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site to send the invoice automatically.");
+            toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site to send the invoice automatically.");
           }
         }
 
@@ -276,7 +265,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         if (isDuplicate) return;
 
         const newTransaction = {
-          id: Date.now(),
+          id: generateId(),
           date: new Date().toISOString().split('T')[0],
           type: 'Invoice Generated',
           amount: totalInclusive,
@@ -291,16 +280,21 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         
         const updatedDocProfile = { ...docProfile, balance: newBalance };
         setDoctorsData({ ...doctorsData, [currentSheet]: updatedDocProfile });
-        await writeData(`doctors/${currentSheet}/balance`, newBalance);
+        await atomicIncrement(`doctors/${currentSheet}/balance`, totalInclusive);
+
+        // Auto-increment invoice sequence number
+        const nextSeq = (Number(settings.invoiceSequence) || 1) + 1;
+        setSettings({ ...settings, invoiceSequence: nextSeq });
+        await writeData('settings/invoiceSequence', nextSeq);
         
-        alert(`Invoice generated and ₹${totalInclusive.toFixed(2)} added to ${currentSheet}'s ledger!`);
+        toast.success(`Invoice generated and ₹${totalInclusive.toFixed(2)} added to ${currentSheet}'s ledger!`);
       }
     }
   };
 
   const handleGenerateAll = async () => {
     if (selectedMonth === 'All') {
-      alert("Please select a specific Billing Month from the dropdown first. Bulk generation for 'All Months' is not allowed.");
+      toast.error("Please select a specific Billing Month from the dropdown first. Bulk generation for 'All Months' is not allowed.");
       return;
     }
 
@@ -319,11 +313,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       // Apply month filter
       if (selectedMonth !== 'All') {
         sheetData = sheetData.filter(row => {
-          const getVal = (possibleKeys: string[]) => {
-            const foundKey = Object.keys(row).find(k => possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase()));
-            return foundKey ? row[foundKey] : undefined;
-          };
-          const dateVal = String(getVal(['received date', 'date', 'order date']) || '');
+          const dateVal = String(getVal(row, ['received date', 'date', 'order date']) || '');
           return getMonthYear(dateVal) === selectedMonth;
         });
       }
@@ -349,7 +339,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         }
 
         // Generate PDF
-        const pdfBase64 = generateInvoicePDF(sheetData, sheet, docProfile, settings);
+        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, settings);
 
         // Send via WhatsApp
         if (docProfile.phone) {
@@ -362,13 +352,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           const popup = window.open(url, '_blank');
           
           if (!popup) {
-            alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
+            toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
             break; // Stop the loop if popups are blocked
           }
         }
 
         const newTransaction = {
-          id: Date.now() + processedCount, // ensure unique
+          id: generateId(),
           date: new Date().toISOString().split('T')[0],
           type: 'Invoice Generated',
           amount: totalInclusive,
@@ -382,9 +372,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         const currentBalance = Number(docProfile.balance) || 0;
         const newBalance = currentBalance + totalInclusive;
         newDocsData[sheet] = { ...docProfile, balance: newBalance };
-        await writeData(`doctors/${sheet}/balance`, newBalance);
+        await atomicIncrement(`doctors/${sheet}/balance`, totalInclusive);
         
         processedCount++;
+        
+        // Auto-increment invoice sequence number
+        const nextSeq = (Number(settings.invoiceSequence) || 1) + processedCount;
+        await writeData('settings/invoiceSequence', nextSeq);
         
         // Slight delay to prevent browser download blocking
         await new Promise(res => setTimeout(res, 800));
@@ -393,14 +387,14 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
     setDoctorsData(newDocsData);
     if (processedCount > 0 || skippedCount > 0) {
-      alert(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!${skippedCount > 0 ? ` Skipped ${skippedCount} doctors who already had bills generated for ${selectedMonth}.` : ''}`);
+      toast.success(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!${skippedCount > 0 ? ` Skipped ${skippedCount} doctors who already had bills generated for ${selectedMonth}.` : ''}`);
     } else {
-      alert("No valid billable data found to generate.");
+      toast.info("No valid billable data found to generate.");
     }
   };
 
   const handleClearAllLedgers = async () => {
-    if (!confirm("Are you sure you want to completely clear the ledgers and reset balances to zero for ALL doctors? This cannot be undone!")) return;
+    if (!confirm("Are you sure you want to clear the ledger for ALL doctors? This will reset all balances to 0 and erase all transaction history. This cannot be undone.")) return;
     setIsSyncing(true);
     try {
       const updatedDocs = { ...doctorsData };
@@ -412,9 +406,9 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         count++;
       }
       setDoctorsData(updatedDocs);
-      alert(`Successfully cleared ledgers and reset balances for ${count} doctors.`);
+      toast.success(`Successfully cleared ledgers and reset balances for ${count} doctors.`);
     } catch (err: any) {
-      alert("Failed to clear ledgers: " + (err.message || "Unknown error"));
+      toast.error("Failed to clear ledgers: " + (err.message || "Unknown error"));
     } finally {
       setIsSyncing(false);
     }

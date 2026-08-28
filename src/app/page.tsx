@@ -3,7 +3,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { ExcelUploader } from "@/components/ExcelUploader";
-import { fetchData } from "@/lib/firebase";
+import { fetchData, writeData } from '@/lib/firebase';
+import { generateId } from '@/lib/utils';
+import { toast } from 'sonner';
 import { TrendingUp, AlertTriangle, AlertCircle, Banknote } from "lucide-react";
 
 export default function Home() {
@@ -101,7 +103,7 @@ export default function Home() {
 
               if (!alreadyLogged) {
                 updatedExpenses.unshift({
-                  id: Date.now().toString() + Math.random().toString(),
+                  id: generateId(),
                   date: `${currentMonthPrefix}-${String(dayOfMonth).padStart(2, '0')}`,
                   category: rec.category,
                   amount: Number(rec.amount) || 0,

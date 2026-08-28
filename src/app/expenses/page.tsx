@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator, AlertTriangle, Trash2, X, Download, FileSpreadsheet, Calendar } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
+import { generateId } from '@/lib/utils';
+import { toast } from 'sonner';
 import * as xlsx from 'xlsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
@@ -31,7 +33,10 @@ export default function ExpensesPage() {
   useEffect(() => {
     async function loadData() {
       const expData = await fetchData('expenses');
-      if (expData) setExpenses(expData);
+      if (expData) {
+        const expensesArray = Array.isArray(expData) ? expData : Object.values(expData);
+        setExpenses(expensesArray);
+      }
 
       const ledger = await fetchData('ledger');
       if (ledger) setRawLedger(ledger);
@@ -46,9 +51,8 @@ export default function ExpensesPage() {
       txs.forEach((tx: any) => {
         const txDate = tx.date;
         if (txDate >= dateFrom && txDate <= dateTo) {
-          if (tx.type === 'Payment') {
-            rev += Math.abs(tx.amount);
-          } else if (tx.type === 'Charge' || tx.type === 'Invoice') {
+          // Revenue = invoice/charge amounts (not payments — those are cash collection, not revenue)
+          if (tx.type === 'Invoice Generated' || tx.type === 'Invoice' || tx.type === 'Charge' || tx.type === 'Bill' || tx.type === 'Debit Note') {
             rev += tx.amount > 0 ? tx.amount : Math.abs(tx.amount);
           }
         }
@@ -77,7 +81,7 @@ export default function ExpensesPage() {
 
   const handleExportExcel = () => {
     if (filteredExpenses.length === 0) {
-      alert("No expenses in the selected date range to export.");
+      toast.error("No expenses in the selected date range to export.");
       return;
     }
     const exportData = filteredExpenses.map(e => ({
@@ -97,7 +101,7 @@ export default function ExpensesPage() {
     if(!amount || !category || isNaN(Number(amount)) || Number(amount) <= 0) return;
     
     const newExpense = {
-      id: Date.now(),
+      id: generateId(),
       date: new Date().toISOString().split('T')[0],
       category,
       amount: Number(amount),
@@ -107,9 +111,9 @@ export default function ExpensesPage() {
     const updatedExpenses = [...expenses, newExpense];
     setExpenses(updatedExpenses);
 
-    await writeData('expenses', updatedExpenses);
+    await writeData(`expenses/${newExpense.id}`, newExpense);
     
-    alert(`Logged ${category} expense of ₹${amount}`);
+    toast.success(`Logged ${category} expense of ₹${amount}`);
     setCategory(''); setAmount(''); setDesc('');
   };
 
@@ -176,7 +180,7 @@ export default function ExpensesPage() {
               }
             }
           } else {
-            alert(`Note: The original bill for Invoice #${invoiceNo} could not be found. The expense will still be deleted.`);
+            toast.info(`Note: The original bill for Invoice #${invoiceNo} could not be found. The expense will still be deleted.`);
           }
         }
       } else {
@@ -186,17 +190,22 @@ export default function ExpensesPage() {
       
       // Step 4: Remove expense from expenses array safely
       const currentExpensesArray = Array.isArray(expenses) ? expenses : (expenses ? Object.values(expenses) : []);
-      // If the expense doesn't have an ID for some reason, match by date and amount as fallback
       const updatedExpenses = currentExpensesArray.filter((e: any) => {
         if (expense.id && e.id) return String(e.id) !== String(expense.id);
         return !(e.date === expense.date && e.amount === expense.amount && e.desc === expense.desc);
       });
       
       setExpenses(updatedExpenses);
-      await writeData('expenses', updatedExpenses);
+      
+      if (expense.id) {
+        await writeData(`expenses/${expense.id}`, null);
+      } else {
+        // Fallback for extremely old expenses without IDs (unlikely after migration)
+        await writeData('expenses', updatedExpenses);
+      }
     } catch (error) {
       console.error("Failed to delete expense:", error);
-      alert("An error occurred while deleting the expense. Please try refreshing the page.");
+      toast.error("An error occurred while deleting the expense. Please try refreshing the page.");
     }
   };
 
@@ -210,10 +219,10 @@ export default function ExpensesPage() {
         if (matchedBill && (matchedBill as any).image) {
           setViewingBillImage((matchedBill as any).image);
         } else {
-          alert('Could not find the original scanned image for this bill.');
+          toast.error('Could not find the original scanned image for this bill.');
         }
       } else {
-        alert('Could not find any bill records.');
+        toast.error('Could not find any bill records.');
       }
     }
   };

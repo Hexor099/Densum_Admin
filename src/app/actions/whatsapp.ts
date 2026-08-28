@@ -4,6 +4,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 
 import fs from 'fs';
+import crypto from 'crypto';
 
 export async function sendWhatsAppAction(phone: string, message: string, pdfBase64?: string) {
   return new Promise<{ success: boolean; error?: string }>((resolve) => {
@@ -21,7 +22,7 @@ export async function sendWhatsAppAction(phone: string, message: string, pdfBase
         if (!fs.existsSync(tempDir)) {
           fs.mkdirSync(tempDir, { recursive: true });
         }
-        attachmentPath = path.join(tempDir, `invoice_${Date.now()}.pdf`);
+        attachmentPath = path.join(tempDir, `invoice_${crypto.randomUUID()}.pdf`);
         fs.writeFileSync(attachmentPath, base64Data, 'base64');
         console.log(`Saved PDF to ${attachmentPath}, size: ${base64Data.length} chars`);
       }

@@ -3,7 +3,8 @@
 import { useState, useRef } from "react";
 import { Camera, X, Loader2, FileCheck, AlertCircle, Building2 } from "lucide-react";
 import { parseBillImageAction } from "@/app/actions/inventory";
-import { fetchData, writeData } from "@/lib/firebase";
+import { fetchData, writeData, atomicIncrement } from "@/lib/firebase";
+import { generateId } from "@/lib/utils";
 import { useEffect } from "react";
 
 interface BillUploadModalProps {
@@ -162,7 +163,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         await writeData(`lab_catalog/${itemId}`, stockData);
         
         // Log history
-        const histId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+        const histId = generateId();
         await writeData(`inventory_history/${histId}`, {
           item: item.name,
           change: item.qty,
@@ -172,7 +173,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       }));
 
       // Save the bill metadata
-      const billId = Date.now().toString();
+      const billId = generateId();
       const supplierName = suppliers[selectedSupplier]?.name || 'Unknown Supplier';
       const actualBillDate = parsedBill.billDate || new Date().toISOString().split('T')[0];
 
@@ -183,14 +184,14 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         supplierName: supplierName,
         totalAmount: parsedBill.totalAmount,
         items: parsedBill.items,
-        image: fullDataUrl // Use the exact original data URL
+        image: fullDataUrl // Saving as base64 string directly in RTDB
       });
 
       // Update Supplier Ledger and Balance
       const currentSupplier = suppliers[selectedSupplier];
       if (currentSupplier) {
         const newTx = {
-          id: Date.now().toString(),
+          id: generateId(),
           date: actualBillDate,
           type: 'Bill',
           amount: parsedBill.totalAmount || 0, // positive amount increases debt
@@ -198,21 +199,18 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         };
         const suppLedger = await fetchData(`supplier_ledger/${selectedSupplier}`) || [];
         await writeData(`supplier_ledger/${selectedSupplier}`, [...suppLedger, newTx]);
-        await writeData(`suppliers/${selectedSupplier}/balance`, (Number(currentSupplier.balance) || 0) + (parsedBill.totalAmount || 0));
+        await atomicIncrement(`suppliers/${selectedSupplier}/balance`, parsedBill.totalAmount || 0);
       }
 
       // Add to Expenses
-      const rawExpenses = await fetchData('expenses');
-      const currentExpenses = Array.isArray(rawExpenses) ? rawExpenses : (rawExpenses ? Object.values(rawExpenses) : []);
-      
       const newExpense = {
-        id: Date.now(),
+        id: generateId(),
         date: actualBillDate,
         category: "Inventory Purchase",
         amount: parsedBill.totalAmount || 0,
         desc: `Bill from ${supplierName} (Invoice #${parsedBill.invoiceNo || 'Unknown'})`
       };
-      await writeData('expenses', [...currentExpenses, newExpense]);
+      await writeData(`expenses/${newExpense.id}`, newExpense);
 
       onSuccess();
     } catch (err: any) {

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Clock, MessageCircle, Search } from 'lucide-react';
 import { fetchData } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
+import { toast } from 'sonner';
 
 export default function AgingReportPage() {
   const [ledger, setLedger] = useState<any>({});
@@ -46,11 +47,11 @@ export default function AgingReportPage() {
       for (const tx of sortedTxs) {
         if (unallocatedBalance <= 0) break;
 
-        // Bills and Debit Notes increase debt
-        if (tx.type === 'Bill' || tx.type === 'Debit Note') {
+        // Bills, Invoices, Debit Notes, and Charges increase debt
+        if (tx.type === 'Bill' || tx.type === 'Debit Note' || tx.type === 'Invoice Generated' || tx.type === 'Invoice' || tx.type === 'Charge') {
           const amount = tx.amount > 0 ? tx.amount : Math.abs(tx.amount);
           const allocated = Math.min(amount, unallocatedBalance);
-          
+
           const txDate = new Date(tx.date);
           const diffTime = Math.abs(now.getTime() - txDate.getTime());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -81,7 +82,7 @@ export default function AgingReportPage() {
     return report.sort((a, b) => b.totalOutstanding - a.totalOutstanding);
   }, [ledger, doctors]);
 
-  const filteredReport = agingData.filter(r => 
+  const filteredReport = agingData.filter(r =>
     r.docName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -102,7 +103,7 @@ export default function AgingReportPage() {
     const targets = agingData.filter(r => (r.buckets['61_90'] > 0 || r.buckets['90_plus'] > 0) && r.phone);
 
     if (targets.length === 0) {
-      alert("No doctors found with 60+ days overdue balance and a saved phone number.");
+      toast.error("No doctors found with 60+ days overdue balance and a saved phone number.");
       return;
     }
 
@@ -110,20 +111,20 @@ export default function AgingReportPage() {
 
     setIsSendingWA(true);
     let successCount = 0;
-    
+
     for (const r of targets) {
       const overdueAmount = r.buckets['61_90'] + r.buckets['90_plus'];
       const text = `URGENT: Hello ${r.docName}, you have an overdue balance of ₹${overdueAmount} pending for more than 60 days. Your total outstanding is ₹${r.totalOutstanding}. Please clear this immediately to avoid service interruption.`;
-      
+
       let phone = r.phone;
       if (!phone.startsWith('+')) phone = '+91' + phone;
-      
+
       const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
       const popup = window.open(url, '_blank');
-      
+
       if (!popup) {
-        alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
-        break; 
+        toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
+        break;
       }
 
       try {
@@ -133,9 +134,9 @@ export default function AgingReportPage() {
         console.error("Failed for", r.docName);
       }
     }
-    
+
     setIsSendingWA(false);
-    alert(`Finished! Successfully sent ${successCount} out of ${targets.length} escalation messages.`);
+    toast.success(`Finished! Successfully sent ${successCount} out of ${targets.length} escalation messages.`);
   };
 
   if (loading) {
@@ -152,7 +153,7 @@ export default function AgingReportPage() {
           <p className="text-foreground/70">Track overdue balances by age (FIFO method) to prioritize collections.</p>
         </div>
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={handleBulkEscalation}
             disabled={isSendingWA}
             className="px-5 py-3 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all border border-red-500/30 flex items-center gap-2 disabled:opacity-50"
@@ -192,8 +193,8 @@ export default function AgingReportPage() {
           <h3 className="font-bold text-white text-lg">Doctor Aging Breakdown</h3>
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50" size={20} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search doctor..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
@@ -201,7 +202,7 @@ export default function AgingReportPage() {
             />
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-foreground/60 uppercase bg-black/40">

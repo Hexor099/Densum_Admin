@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { User, MessageCircle, DollarSign, FileText, Plus, FileSpreadsheet, Calendar } from 'lucide-react';
-import { fetchData, writeData } from '@/lib/firebase';
+import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
+import { generateId } from '@/lib/utils';
+import { toast } from 'sonner';
 import * as xlsx from 'xlsx';
 
 export default function LedgerPage() {
@@ -69,7 +71,7 @@ export default function LedgerPage() {
 
   const handleExportExcel = () => {
     if (filteredTransactions.length === 0) {
-      alert("No transactions in the selected date range to export.");
+      toast.error("No transactions in the selected date range to export.");
       return;
     }
     
@@ -102,7 +104,7 @@ export default function LedgerPage() {
 
   const handleWhatsApp = async () => {
     if (!selectedDoc.phone) {
-      alert("No phone number saved for this doctor.");
+      toast.error("No phone number saved for this doctor.");
       return;
     }
     setIsSendingWA(true);
@@ -114,7 +116,7 @@ export default function LedgerPage() {
     const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
     const popup = window.open(url, '_blank');
     if (!popup) {
-      alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site.");
+      toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site.");
       setIsSendingWA(false);
       return;
     }
@@ -122,12 +124,12 @@ export default function LedgerPage() {
     try {
       const res = await sendWhatsAppAction(selectedDoc.phone, text);
       if (res.success) {
-        alert("WhatsApp message sent successfully via automation.");
+        toast.success("WhatsApp message sent successfully via automation.");
       } else {
-        alert("Failed to send WhatsApp message. " + res.error);
+        toast.error("Failed to send WhatsApp message. " + res.error);
       }
     } catch (e) {
-      alert("Error sending WhatsApp message.");
+      toast.error("Error sending WhatsApp message.");
     } finally {
       setIsSendingWA(false);
     }
@@ -139,7 +141,7 @@ export default function LedgerPage() {
     });
 
     if (docsWithDues.length === 0) {
-      alert("No doctors have both an outstanding balance and a saved phone number.");
+      toast.error("No doctors have both an outstanding balance and a saved phone number.");
       return;
     }
 
@@ -157,7 +159,7 @@ export default function LedgerPage() {
       const popup = window.open(url, '_blank');
       
       if (!popup) {
-        alert("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
+        toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
         break; // Stop the loop if popups are blocked
       }
 
@@ -170,7 +172,7 @@ export default function LedgerPage() {
     }
     
     setIsSendingWA(false);
-    alert(`Finished! Successfully sent ${successCount} out of ${docsWithDues.length} messages.`);
+    toast.success(`Finished! Successfully sent ${successCount} out of ${docsWithDues.length} messages.`);
   };
 
   const recordTransaction = async () => {
@@ -181,7 +183,7 @@ export default function LedgerPage() {
     const txAmount = isReducer ? -amount : amount;
     
     const newTransaction = {
-      id: Date.now(),
+      id: generateId(),
       date: new Date().toISOString().split('T')[0],
       type: txType,
       amount: txAmount,
@@ -199,9 +201,9 @@ export default function LedgerPage() {
     
     // Save to Firebase
     await writeData(`ledger/${selectedDocId}`, updatedTransactions);
-    await writeData(`doctors/${selectedDocId}/balance`, newBalance);
+    await atomicIncrement(`doctors/${selectedDocId}/balance`, txAmount);
     
-    alert(`Recorded ${txType} of ₹${amount} for ${selectedDocId}`);
+    toast.success(`Recorded ${txType} of ₹${amount} for ${selectedDocId}`);
     setPaymentAmount('');
     setRefNumber('');
   };

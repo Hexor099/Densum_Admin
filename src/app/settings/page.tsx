@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2 } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
+import { generateId } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useStore } from '@/store/useStore';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
@@ -20,20 +24,26 @@ export default function SettingsPage() {
 
   const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
 
+  const storeSettings = useStore(state => state.settings);
+  const refreshSettings = useStore(state => state.refreshSettings);
+  const [isStoreLoaded, setIsStoreLoaded] = useState(false);
+
   useEffect(() => {
-    async function loadSettings() {
-      const data = await fetchData('settings');
-      if (data) {
-        setFormData(data);
+    if (storeSettings && Object.keys(storeSettings).length > 0 && !isStoreLoaded) {
+      const { recurring_expenses, ...generalSettings } = storeSettings;
+      if (Object.keys(generalSettings).length > 0) {
+        setFormData(generalSettings as any);
       }
-      const rec = await fetchData('settings/recurring_expenses');
-      if (rec) {
-        setRecurringExpenses(Object.values(rec));
+      if (recurring_expenses) {
+        setRecurringExpenses(Object.values(recurring_expenses));
       }
+      setIsStoreLoaded(true);
       setLoading(false);
+    } else if (Object.keys(storeSettings).length === 0) {
+      // Still waiting for store to populate
+      setLoading(false); // don't block forever if empty
     }
-    loadSettings();
-  }, []);
+  }, [storeSettings, isStoreLoaded]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -56,16 +66,17 @@ export default function SettingsPage() {
     
     setIsSaving(false);
     if (result.success) {
+      await refreshSettings();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } else {
-      alert("Failed to save settings");
+      toast.error("Failed to save settings");
     }
   };
 
   const addRecurringExpense = () => {
     setRecurringExpenses([...recurringExpenses, {
-      id: Date.now().toString(),
+      id: generateId(),
       desc: '',
       category: 'Rent',
       amount: '',

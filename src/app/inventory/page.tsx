@@ -3,14 +3,27 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Plus, Minus, History, PackageOpen, AlertTriangle, Camera, FileSpreadsheet, MessageCircle, TrendingUp, ShoppingCart, Send, ShoppingBag, Trash2 } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
+import { generateId } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useStore } from '@/store/useStore';
 import { BillUploadModal } from '@/components/BillUploadModal';
 import * as xlsx from 'xlsx';
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [catalog, setCatalog] = useState<any[]>([]);
+  const storeCatalog = useStore(state => state.catalog);
+  const storeSuppliers = useStore(state => state.suppliers);
+  const refreshCatalog = useStore(state => state.refreshCatalog);
+  
+  const catalog = useMemo(() => {
+    return Object.keys(storeCatalog).map(key => ({
+      id: key,
+      ...storeCatalog[key]
+    }));
+  }, [storeCatalog]);
+  
+  const suppliers = storeSuppliers;
   const [history, setHistory] = useState<any[]>([]);
-  const [suppliers, setSuppliers] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -61,45 +74,28 @@ export default function InventoryPage() {
     const newQty = Math.max(0, currentQty + change);
     if (newQty === currentQty) return;
     
-    setCatalog(prev => prev.map(item => 
-      item.id === itemId ? { ...item, qty: newQty } : item
-    ));
-
     const histEntry = {
       item: itemName,
       change: change,
       date: new Date().toISOString().replace('T', ' ').substring(0, 16),
       user: 'Admin'
     };
-    const histId = Date.now().toString();
+    const histId = generateId();
 
     setHistory(prev => [{ id: histId, ...histEntry }, ...prev]);
 
     try {
       await writeData(`lab_catalog/${itemId}/qty`, newQty);
       await writeData(`inventory_history/${histId}`, histEntry);
+      await refreshCatalog(); // refresh global state
     } catch (error) {
       console.error("Failed to update stock", error);
-      // Revert on error
-      setCatalog(prev => prev.map(item => 
-        item.id === itemId ? { ...item, qty: currentQty } : item
-      ));
       setHistory(prev => prev.filter(h => h.id !== histId));
     }
   };
 
   useEffect(() => {
     async function loadInventory() {
-      const data = await fetchData('lab_catalog');
-      if (data) {
-        // Convert object to array for easier filtering
-        const catalogArray = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        }));
-        setCatalog(catalogArray);
-      }
-
       const histData = await fetchData('inventory_history');
       if (histData) {
         const histArray = Object.keys(histData).map(key => ({
@@ -108,36 +104,16 @@ export default function InventoryPage() {
         })).sort((a, b) => b.id.localeCompare(a.id));
         setHistory(histArray);
       }
-      
-      const suppData = await fetchData('suppliers');
-      if (suppData) {
-        setSuppliers(suppData);
-      }
-
       setLoading(false);
     }
     
     loadInventory();
-    
-    // In a real app we'd setup a listener here for live updates
-    // using onValue from firebase/database instead of fetchData (get)
-    // but this serves as a good start.
   }, []);
 
   const refreshData = async () => {
     setLoading(true);
+    await refreshCatalog();
     
-    const data = await fetchData('lab_catalog');
-    if (data) {
-      const catalogArray = Object.keys(data).map(key => ({
-        id: key,
-        ...data[key]
-      }));
-      setCatalog(catalogArray);
-    } else {
-      setCatalog([]);
-    }
-
     const histData = await fetchData('inventory_history');
     if (histData) {
       const histArray = Object.keys(histData).map(key => ({
@@ -147,11 +123,6 @@ export default function InventoryPage() {
       setHistory(histArray);
     } else {
       setHistory([]);
-    }
-    
-    const suppData = await fetchData('suppliers');
-    if (suppData) {
-      setSuppliers(suppData);
     }
 
     setLoading(false);
@@ -174,13 +145,13 @@ export default function InventoryPage() {
   const handleReorder = (item: any) => {
     const supplierId = item.supplierId;
     if (!supplierId || !suppliers[supplierId]) {
-      alert("No primary supplier assigned to this item. Please select a supplier when uploading a bill for this item.");
+      toast.error("No primary supplier assigned to this item. Please select a supplier when uploading a bill for this item.");
       return;
     }
 
     const supplier = suppliers[supplierId];
     if (!supplier.phone) {
-      alert(`Supplier ${supplier.name} does not have a phone number saved.`);
+      toast.error(`Supplier ${supplier.name} does not have a phone number saved.`);
       return;
     }
 
@@ -194,7 +165,7 @@ export default function InventoryPage() {
 
   const handleExportExcel = () => {
     if (filteredCatalog.length === 0) {
-      alert("No inventory items to export.");
+      toast.error("No inventory items to export.");
       return;
     }
     
@@ -402,8 +373,8 @@ export default function InventoryPage() {
                       <button 
                         onClick={() => {
                           if (suppId === 'unassigned' || !suppPhone) {
-                            alert(suppId === 'unassigned' 
-                              ? "These items don't have a supplier assigned. Please update their supplier first." 
+                            toast.error(suppId === 'unassigned' 
+                              ? "Cannot add unassigned items to reorder list. Assign a supplier first."
                               : `Supplier ${suppName} has no phone number saved.`);
                             return;
                           }

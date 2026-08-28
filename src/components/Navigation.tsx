@@ -4,13 +4,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { cn } from '@/lib/utils';
 import { fetchData } from '@/lib/firebase';
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { useStore } from '@/store/useStore';
 
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -28,21 +24,21 @@ export function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
 
+  if (pathname === "/login") return null;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchData, setSearchData] = useState<{ doctors: any, catalog: any, expenses: any } | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const storeDoctors = useStore((state) => state.doctors);
+  const storeCatalog = useStore((state) => state.catalog);
 
   const handleSearchFocus = async () => {
     setIsSearching(true);
     if (!searchData) {
       try {
-        const [doctors, catalog, expenses] = await Promise.all([
-          fetchData('doctors'),
-          fetchData('lab_catalog'),
-          fetchData('expenses')
-        ]);
-        setSearchData({ doctors: doctors || {}, catalog: catalog || {}, expenses: expenses || [] });
+        const expenses = await fetchData('expenses');
+        setSearchData({ doctors: storeDoctors, catalog: storeCatalog, expenses: expenses || [] });
       } catch (e) {
         console.error("Failed to load search data", e);
       }

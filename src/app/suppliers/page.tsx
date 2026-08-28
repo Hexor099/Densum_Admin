@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Building2, Search, Plus, Trash2, Phone, MapPin, Receipt, Edit, DollarSign } from 'lucide-react';
-import { fetchData, writeData } from '@/lib/firebase';
+import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
+import { generateId } from '@/lib/utils';
+import { toast } from 'sonner';
 
 type Supplier = {
   id: string;
@@ -74,9 +76,12 @@ export default function SuppliersPage() {
   };
 
   const handleSaveSupplier = async () => {
-    if (!formData.name) return alert("Name is required");
+    if (!formData.name) {
+      toast.error("Name is required");
+      return;
+    }
     
-    const id = editingSupplierId || `SUP-${Date.now()}`;
+    const id = editingSupplierId || `SUP-${generateId()}`;
     const newSupplier = {
       ...formData,
       id,
@@ -102,12 +107,15 @@ export default function SuppliersPage() {
   };
 
   const handleSavePayment = async () => {
-    if (!selectedSupplier || !paymentForm.amount || Number(paymentForm.amount) <= 0) return alert("Valid amount is required");
+    if (!selectedSupplier || !paymentForm.amount || Number(paymentForm.amount) <= 0) {
+      toast.error("Valid amount is required");
+      return;
+    }
     
     const amountNum = Number(paymentForm.amount);
     
     const newTx = {
-      id: Date.now().toString(),
+      id: generateId(),
       date: paymentForm.date,
       type: 'Payment',
       amount: -amountNum, // Reduces what we owe
@@ -134,7 +142,7 @@ export default function SuppliersPage() {
 
     // Write to Firebase
     await writeData(`supplier_ledger/${selectedSupplier}`, docTxs);
-    await writeData(`suppliers/${selectedSupplier}/balance`, newBalance);
+    await atomicIncrement(`suppliers/${selectedSupplier}/balance`, -amountNum);
   };
 
   if (loading) {
