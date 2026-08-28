@@ -183,7 +183,10 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       if (fullDataUrl) {
         try {
           const imgRef = storageRef(storage, `bills/${billId}`);
-          await uploadString(imgRef, fullDataUrl, 'data_url');
+          const uploadPromise = uploadString(imgRef, fullDataUrl, 'data_url');
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 10000));
+          
+          await Promise.race([uploadPromise, timeoutPromise]);
           imageUrl = await getDownloadURL(imgRef);
         } catch (storageErr) {
           console.error("Firebase Storage upload failed, falling back to Base64:", storageErr);
