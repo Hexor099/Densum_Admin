@@ -126,7 +126,7 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
       toothParsed.left,
       toothParsed.right,
       String(getVal(row, ['units']) || 0),
-      Number(row['Rate']).toFixed(2),
+      (Number(row['Rate']) || 0).toFixed(2),
       total.toFixed(2),
       toothParsed.hasFDI
     ];

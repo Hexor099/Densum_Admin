@@ -24,8 +24,6 @@ export function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname === "/login") return null;
-
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchData, setSearchData] = useState<{ doctors: any, catalog: any, expenses: any } | null>(null);
@@ -54,6 +52,8 @@ export function Navigation() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  if (pathname === "/login") return null;
 
   let results: { type: string, title: string, subtitle: string, href: string }[] = [];
   if (searchTerm.trim() && searchData) {

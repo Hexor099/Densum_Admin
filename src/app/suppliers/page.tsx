@@ -5,6 +5,7 @@ import { Building2, Search, Plus, Trash2, Phone, MapPin, Receipt, Edit, DollarSi
 import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useStore } from '@/store/useStore';
 
 type Supplier = {
   id: string;
@@ -16,9 +17,7 @@ type Supplier = {
 };
 
 export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState<Record<string, Supplier>>({});
-  const [ledger, setLedger] = useState<Record<string, any[]>>({});
-  const [loading, setLoading] = useState(true);
+  const { suppliers, supplier_ledger: ledger, isInitialized, initializeStore, refreshSuppliers, refreshSupplierLedger } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
@@ -43,15 +42,8 @@ export default function SuppliersPage() {
   });
 
   useEffect(() => {
-    async function loadData() {
-      const supp = await fetchData('suppliers');
-      const ldgr = await fetchData('supplier_ledger');
-      if (supp) setSuppliers(supp);
-      if (ldgr) setLedger(ldgr);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+    if (!isInitialized) initializeStore();
+  }, [isInitialized, initializeStore]);
 
   const filteredSuppliers = useMemo(() => {
     return Object.values(suppliers).filter(s => 
@@ -88,11 +80,10 @@ export default function SuppliersPage() {
       balance: editingSupplierId ? suppliers[editingSupplierId].balance : 0
     };
 
-    const newSuppliers = { ...suppliers, [id]: newSupplier };
-    setSuppliers(newSuppliers);
     setIsSupplierModalOpen(false);
 
     await writeData(`suppliers/${id}`, newSupplier);
+    await refreshSuppliers();
   };
 
   const openPaymentModal = (id: string) => {
@@ -126,26 +117,17 @@ export default function SuppliersPage() {
     const docTxs = [...(ledger[selectedSupplier] || [])];
     docTxs.push(newTx);
     
-    const updatedLedger = { ...ledger, [selectedSupplier]: docTxs };
-    setLedger(updatedLedger);
-
-    const currentBalance = suppliers[selectedSupplier].balance || 0;
-    const newBalance = currentBalance - amountNum;
-    
-    const updatedSuppliers = {
-      ...suppliers,
-      [selectedSupplier]: { ...suppliers[selectedSupplier], balance: newBalance }
-    };
-    setSuppliers(updatedSuppliers);
-    
     setIsPaymentModalOpen(false);
 
     // Write to Firebase
     await writeData(`supplier_ledger/${selectedSupplier}`, docTxs);
     await atomicIncrement(`suppliers/${selectedSupplier}/balance`, -amountNum);
+    
+    await refreshSuppliers();
+    await refreshSupplierLedger();
   };
 
-  if (loading) {
+  if (!isInitialized) {
     return <div className="p-10 text-center text-foreground/50 animate-pulse">Loading Suppliers...</div>;
   }
 

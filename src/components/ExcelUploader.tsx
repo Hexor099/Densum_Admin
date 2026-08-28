@@ -146,7 +146,8 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     if (onDataProcessed) {
       onDataProcessed(enhanced);
     }
-  }, [allSheetsData, doctorsData, onDataProcessed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allSheetsData, doctorsData]);
 
   const currentData = allSheetsData && currentSheet ? allSheetsData[currentSheet] : null;
   const enhancedData = currentSheet ? allEnhancedData[currentSheet] : null;
@@ -275,12 +276,9 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         await writeData(`ledger/${currentSheet}`, updatedTransactions);
 
         // Update balance
-        const currentBalance = Number(docProfile.balance) || 0;
-        const newBalance = currentBalance + totalInclusive;
-        
-        const updatedDocProfile = { ...docProfile, balance: newBalance };
-        setDoctorsData({ ...doctorsData, [currentSheet]: updatedDocProfile });
         await atomicIncrement(`doctors/${currentSheet}/balance`, totalInclusive);
+        const freshDoc = await fetchData(`doctors/${currentSheet}`);
+        setDoctorsData({ ...doctorsData, [currentSheet]: freshDoc || docProfile });
 
         // Auto-increment invoice sequence number
         const nextSeq = (Number(settings.invoiceSequence) || 1) + 1;
@@ -305,6 +303,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     let processedCount = 0;
     let skippedCount = 0;
     const newDocsData = { ...doctorsData };
+    let localInvoiceSequence = Number(settings.invoiceSequence) || 1;
 
     for (const sheet of Object.keys(allEnhancedData)) {
       let sheetData = allEnhancedData[sheet];
@@ -339,7 +338,8 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         }
 
         // Generate PDF
-        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, settings);
+        const currentSettings = { ...settings, invoiceSequence: localInvoiceSequence };
+        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings);
 
         // Send via WhatsApp
         if (docProfile.phone) {
@@ -369,22 +369,22 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         await writeData(`ledger/${sheet}`, updatedTransactions);
 
         // Update Balance
-        const currentBalance = Number(docProfile.balance) || 0;
-        const newBalance = currentBalance + totalInclusive;
-        newDocsData[sheet] = { ...docProfile, balance: newBalance };
         await atomicIncrement(`doctors/${sheet}/balance`, totalInclusive);
+        const freshDoc = await fetchData(`doctors/${sheet}`);
+        newDocsData[sheet] = freshDoc || docProfile;
         
         processedCount++;
         
         // Auto-increment invoice sequence number
-        const nextSeq = (Number(settings.invoiceSequence) || 1) + processedCount;
-        await writeData('settings/invoiceSequence', nextSeq);
+        await writeData('settings/invoiceSequence', localInvoiceSequence);
+        localInvoiceSequence++;
         
         // Slight delay to prevent browser download blocking
         await new Promise(res => setTimeout(res, 800));
       }
     }
 
+    setSettings({ ...settings, invoiceSequence: localInvoiceSequence });
     setDoctorsData(newDocsData);
     if (processedCount > 0 || skippedCount > 0) {
       toast.success(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!${skippedCount > 0 ? ` Skipped ${skippedCount} doctors who already had bills generated for ${selectedMonth}.` : ''}`);

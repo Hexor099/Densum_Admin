@@ -2,24 +2,16 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Building2, CheckCircle, Circle, Search, Wallet } from 'lucide-react';
-import { fetchData, writeData } from '@/lib/firebase';
+import { writeData } from '@/lib/firebase';
+import { useStore } from '@/store/useStore';
 
 export default function BankBookPage() {
-  const [ledger, setLedger] = useState<any>({});
-  const [doctors, setDoctors] = useState<any>({});
-  const [loading, setLoading] = useState(true);
+  const { ledger, doctors, isInitialized, initializeStore, refreshLedger } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    async function loadData() {
-      const ldgr = await fetchData('ledger');
-      const docs = await fetchData('doctors');
-      if (ldgr) setLedger(ldgr);
-      if (docs) setDoctors(docs);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+    if (!isInitialized) initializeStore();
+  }, [isInitialized, initializeStore]);
 
   const allPayments = useMemo(() => {
     const payments: any[] = [];
@@ -75,16 +67,11 @@ export default function BankBookPage() {
       cleared: newClearedStatus
     };
 
-    // Optimistic update
-    setLedger({
-      ...ledger,
-      [payment.docId]: docTxs
-    });
-
     await writeData(`ledger/${payment.docId}`, docTxs);
+    await refreshLedger();
   };
 
-  if (loading) {
+  if (!isInitialized) {
     return <div className="p-10 text-center text-foreground/50 animate-pulse">Loading Bank Book...</div>;
   }
 

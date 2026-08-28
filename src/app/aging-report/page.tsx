@@ -2,27 +2,18 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Clock, MessageCircle, Search } from 'lucide-react';
-import { fetchData } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
 import { toast } from 'sonner';
+import { useStore } from '@/store/useStore';
 
 export default function AgingReportPage() {
-  const [ledger, setLedger] = useState<any>({});
-  const [doctors, setDoctors] = useState<any>({});
-  const [loading, setLoading] = useState(true);
+  const { ledger, doctors, isInitialized, initializeStore } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isSendingWA, setIsSendingWA] = useState(false);
 
   useEffect(() => {
-    async function loadData() {
-      const ldgr = await fetchData('ledger');
-      const docs = await fetchData('doctors');
-      if (ldgr) setLedger(ldgr);
-      if (docs) setDoctors(docs);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+    if (!isInitialized) initializeStore();
+  }, [isInitialized, initializeStore]);
 
   const agingData = useMemo(() => {
     const report: any[] = [];
@@ -139,7 +130,7 @@ export default function AgingReportPage() {
     toast.success(`Finished! Successfully sent ${successCount} out of ${targets.length} escalation messages.`);
   };
 
-  if (loading) {
+  if (!isInitialized) {
     return <div className="p-10 text-center text-foreground/50 animate-pulse">Loading Aging Report...</div>;
   }
 

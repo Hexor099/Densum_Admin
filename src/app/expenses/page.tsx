@@ -2,16 +2,17 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator, AlertTriangle, Trash2, X, Download, FileSpreadsheet, Calendar } from 'lucide-react';
-import { fetchData, writeData } from '@/lib/firebase';
+import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as xlsx from 'xlsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { useStore } from '@/store/useStore';
 
 const COLORS = ['#00a8e8', '#4ade80', '#f472b6', '#fbbf24', '#a78bfa', '#94a3b8', '#38bdf8'];
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<any[]>([]);
+  const { expenses, ledger: rawLedger, isInitialized, initializeStore, refreshExpenses } = useStore();
 
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
@@ -28,21 +29,9 @@ export default function ExpensesPage() {
   const [dateFrom, setDateFrom] = useState(defaultFYStart);
   const [dateTo, setDateTo] = useState(defaultFYEnd);
   
-  const [rawLedger, setRawLedger] = useState<any>({});
-
   useEffect(() => {
-    async function loadData() {
-      const expData = await fetchData('expenses');
-      if (expData) {
-        const expensesArray = Array.isArray(expData) ? expData : Object.values(expData);
-        setExpenses(expensesArray);
-      }
-
-      const ledger = await fetchData('ledger');
-      if (ledger) setRawLedger(ledger);
-    }
-    loadData();
-  }, []);
+    if (!isInitialized) initializeStore();
+  }, [isInitialized, initializeStore]);
 
   // Filter expenses and calculate revenue based on date range
   const { filteredExpenses, taxableRevenue } = useMemo(() => {
@@ -108,10 +97,8 @@ export default function ExpensesPage() {
       desc
     };
 
-    const updatedExpenses = [...expenses, newExpense];
-    setExpenses(updatedExpenses);
-
     await writeData(`expenses/${newExpense.id}`, newExpense);
+    await refreshExpenses();
     
     toast.success(`Logged ${category} expense of ₹${amount}`);
     setCategory(''); setAmount(''); setDesc('');
@@ -173,11 +160,7 @@ export default function ExpensesPage() {
               }
               
               // Reduce the supplier balance
-              const currentSupplier = await fetchData(`suppliers/${supplierId}`);
-              if (currentSupplier) {
-                const currentBalance = Number(currentSupplier.balance) || 0;
-                await writeData(`suppliers/${supplierId}/balance`, currentBalance - billAmount);
-              }
+              await atomicIncrement(`suppliers/${supplierId}/balance`, -billAmount);
             }
           } else {
             toast.info(`Note: The original bill for Invoice #${invoiceNo} could not be found. The expense will still be deleted.`);
@@ -188,21 +171,17 @@ export default function ExpensesPage() {
         if (!confirm(`Are you sure you want to delete this expense: ${expense.category} - ₹${expense.amount}?`)) return;
       }
       
-      // Step 4: Remove expense from expenses array safely
-      const currentExpensesArray = Array.isArray(expenses) ? expenses : (expenses ? Object.values(expenses) : []);
-      const updatedExpenses = currentExpensesArray.filter((e: any) => {
-        if (expense.id && e.id) return String(e.id) !== String(expense.id);
-        return !(e.date === expense.date && e.amount === expense.amount && e.desc === expense.desc);
-      });
-      
-      setExpenses(updatedExpenses);
-      
       if (expense.id) {
         await writeData(`expenses/${expense.id}`, null);
       } else {
-        // Fallback for extremely old expenses without IDs (unlikely after migration)
+        // Fallback for extremely old expenses without IDs
+        const currentExpensesArray = Array.isArray(expenses) ? expenses : (expenses ? Object.values(expenses) : []);
+        const updatedExpenses = currentExpensesArray.filter((e: any) => {
+          return !(e.date === expense.date && e.amount === expense.amount && e.desc === expense.desc);
+        });
         await writeData('expenses', updatedExpenses);
       }
+      await refreshExpenses();
     } catch (error) {
       console.error("Failed to delete expense:", error);
       toast.error("An error occurred while deleting the expense. Please try refreshing the page.");
@@ -268,7 +247,7 @@ export default function ExpensesPage() {
             onClick={async () => {
               if (confirm('Are you sure you want to completely clear all expenses? This is for testing only.')) {
                 await writeData('expenses', null);
-                setExpenses([]);
+                await refreshExpenses();
               }
             }}
             className="px-4 py-2 bg-red-500/20 text-red-400 font-bold rounded-lg hover:bg-red-500/30 transition-all border border-red-500/30 flex items-center gap-2"

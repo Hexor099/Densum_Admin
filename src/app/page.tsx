@@ -3,10 +3,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { ExcelUploader } from "@/components/ExcelUploader";
-import { fetchData, writeData } from '@/lib/firebase';
+import { writeData } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { TrendingUp, AlertTriangle, AlertCircle, Banknote } from "lucide-react";
+import { useStore } from '@/store/useStore';
 
 export default function Home() {
   const [dashboardData, setDashboardData] = useState<Record<string, any[]> | null>(null);
@@ -18,117 +19,114 @@ export default function Home() {
     overdueCount: 0,
   });
 
+  const { doctors, ledger, catalog, settings, expenses, isInitialized, initializeStore, refreshExpenses } = useStore();
+
   useEffect(() => {
-    async function loadKPIs() {
-      try {
-        const docs = await fetchData('doctors') || {};
-        const ledger = await fetchData('ledger') || {};
-        const catalog = await fetchData('lab_catalog') || {};
-
-        let outstanding = 0;
-        let overdue = 0;
-        const now = new Date();
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-        Object.keys(docs).forEach(docId => {
-          const bal = Number(docs[docId]?.balance) || 0;
-          if (bal > 0) {
-            outstanding += bal;
-            const txs = ledger[docId] || [];
-            const hasRecentPayment = txs.some((tx: any) => {
-              if (tx.type === 'Payment') {
-                const txDate = new Date(tx.date);
-                return txDate >= thirtyDaysAgo;
-              }
-              return false;
-            });
-            if (!hasRecentPayment) overdue++;
-          }
-        });
-
-        let revThisMonth = 0;
-        let revLastMonth = 0;
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-        const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-        Object.keys(ledger).forEach(docId => {
-          (ledger[docId] || []).forEach((tx: any) => {
-            if (tx.type === 'Charge' || tx.type === 'Invoice' || tx.type === 'Invoice Generated' || tx.type === 'Bill') {
-              const txDate = new Date(tx.date);
-              if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
-                revThisMonth += Number(tx.amount) || 0;
-              } else if (txDate.getMonth() === lastMonth && txDate.getFullYear() === lastMonthYear) {
-                revLastMonth += Number(tx.amount) || 0;
-              }
-            }
-          });
-        });
-
-        let lowStock = 0;
-        Object.keys(catalog).forEach(itemId => {
-          const item = catalog[itemId];
-          if ((Number(item.qty) || 0) <= (Number(item.min_limit) || 5)) {
-            lowStock++;
-          }
-        });
-
-        setKpis({
-          totalOutstanding: outstanding,
-          thisMonthRevenue: revThisMonth,
-          lastMonthRevenue: revLastMonth,
-          lowStockCount: lowStock,
-          overdueCount: overdue
-        });
-
-        // Lazy evaluation of recurring expenses
-        const recurring = await fetchData('settings/recurring_expenses');
-        if (recurring) {
-          const allExpenses = await fetchData('expenses') || [];
-          const expensesArray = Array.isArray(allExpenses) ? allExpenses : Object.values(allExpenses);
-          
-          let updatedExpenses = [...expensesArray];
-          let expensesChanged = false;
-
-          Object.values(recurring).forEach((rec: any) => {
-            const dayOfMonth = Number(rec.dayOfMonth) || 1;
-            if (now.getDate() >= dayOfMonth) {
-              const currentMonthPrefix = now.toISOString().substring(0, 7); // YYYY-MM
-              
-              // Check if already logged this month
-              const alreadyLogged = expensesArray.some(exp => 
-                exp.desc === `[Auto] ${rec.desc}` && exp.date.startsWith(currentMonthPrefix)
-              );
-
-              if (!alreadyLogged) {
-                updatedExpenses.unshift({
-                  id: generateId(),
-                  date: `${currentMonthPrefix}-${String(dayOfMonth).padStart(2, '0')}`,
-                  category: rec.category,
-                  amount: Number(rec.amount) || 0,
-                  desc: `[Auto] ${rec.desc}`
-                });
-                expensesChanged = true;
-              }
-            }
-          });
-
-          if (expensesChanged) {
-            // Write back to Firebase
-            // We use the dynamic API to write data
-            const { writeData } = await import('@/lib/firebase');
-            await writeData('expenses', updatedExpenses);
-            console.log("Logged automated recurring expenses");
-          }
-        }
-
-      } catch (err) {
-        console.error("Failed to load KPIs or process recurring expenses", err);
-      }
+    if (!isInitialized) {
+      initializeStore();
     }
-    loadKPIs();
-  }, []);
+  }, [isInitialized, initializeStore]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      let outstanding = 0;
+      let overdue = 0;
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      Object.keys(doctors).forEach(docId => {
+        const bal = Number(doctors[docId]?.balance) || 0;
+        if (bal > 0) {
+          outstanding += bal;
+          const txs = ledger[docId] || [];
+          const hasRecentPayment = txs.some((tx: any) => {
+            if (tx.type === 'Payment') {
+              const txDate = new Date(tx.date);
+              return txDate >= thirtyDaysAgo;
+            }
+            return false;
+          });
+          if (!hasRecentPayment) overdue++;
+        }
+      });
+
+      let revThisMonth = 0;
+      let revLastMonth = 0;
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+      Object.keys(ledger).forEach(docId => {
+        (ledger[docId] || []).forEach((tx: any) => {
+          if (tx.type === 'Charge' || tx.type === 'Invoice' || tx.type === 'Invoice Generated' || tx.type === 'Bill') {
+            const txDate = new Date(tx.date);
+            if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+              revThisMonth += Number(tx.amount) || 0;
+            } else if (txDate.getMonth() === lastMonth && txDate.getFullYear() === lastMonthYear) {
+              revLastMonth += Number(tx.amount) || 0;
+            }
+          }
+        });
+      });
+
+      let lowStock = 0;
+      Object.keys(catalog).forEach(itemId => {
+        const item = catalog[itemId];
+        if ((Number(item.qty) || 0) <= (Number(item.min_limit) || 5)) {
+          lowStock++;
+        }
+      });
+
+      setKpis({
+        totalOutstanding: outstanding,
+        thisMonthRevenue: revThisMonth,
+        lastMonthRevenue: revLastMonth,
+        lowStockCount: lowStock,
+        overdueCount: overdue
+      });
+
+      // Lazy evaluation of recurring expenses
+      const recurring = settings?.recurring_expenses;
+      if (recurring) {
+        const expensesArray = Array.isArray(expenses) ? expenses : Object.values(expenses);
+        let expensesChanged = false;
+
+        Object.values(recurring).forEach((rec: any) => {
+          const dayOfMonth = Number(rec.dayOfMonth) || 1;
+          if (now.getDate() >= dayOfMonth) {
+            const currentMonthPrefix = now.toISOString().substring(0, 7); // YYYY-MM
+            
+            // Check if already logged this month
+            const alreadyLogged = expensesArray.some(exp => 
+              exp.desc === `[Auto] ${rec.desc}` && exp.date.startsWith(currentMonthPrefix)
+            );
+
+            if (!alreadyLogged) {
+              const newExp = {
+                id: generateId(),
+                date: `${currentMonthPrefix}-${String(dayOfMonth).padStart(2, '0')}`,
+                category: rec.category,
+                amount: Number(rec.amount) || 0,
+                desc: `[Auto] ${rec.desc}`
+              };
+              writeData(`expenses/${newExp.id}`, newExp);
+              expensesChanged = true;
+            }
+          }
+        });
+
+        if (expensesChanged) {
+          console.log("Logged automated recurring expenses");
+          refreshExpenses();
+        }
+      }
+
+    } catch (err) {
+      console.error("Failed to calculate KPIs or process recurring expenses", err);
+    }
+  }, [isInitialized, doctors, ledger, catalog, settings, expenses, refreshExpenses]);
 
   const topDoctors = useMemo(() => {
     if (!dashboardData) return [];

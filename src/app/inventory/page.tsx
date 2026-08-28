@@ -11,9 +11,7 @@ import * as xlsx from 'xlsx';
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const storeCatalog = useStore(state => state.catalog);
-  const storeSuppliers = useStore(state => state.suppliers);
-  const refreshCatalog = useStore(state => state.refreshCatalog);
+  const { catalog: storeCatalog, suppliers: storeSuppliers, refreshCatalog, inventory_history, refreshInventoryHistory, isInitialized, initializeStore } = useStore();
   
   const catalog = useMemo(() => {
     return Object.keys(storeCatalog).map(key => ({
@@ -82,49 +80,37 @@ export default function InventoryPage() {
     };
     const histId = generateId();
 
-    setHistory(prev => [{ id: histId, ...histEntry }, ...prev]);
-
     try {
       await writeData(`lab_catalog/${itemId}/qty`, newQty);
       await writeData(`inventory_history/${histId}`, histEntry);
       await refreshCatalog(); // refresh global state
+      await refreshInventoryHistory();
     } catch (error) {
       console.error("Failed to update stock", error);
-      setHistory(prev => prev.filter(h => h.id !== histId));
     }
   };
 
   useEffect(() => {
-    async function loadInventory() {
-      const histData = await fetchData('inventory_history');
-      if (histData) {
-        const histArray = Object.keys(histData).map(key => ({
-          id: key,
-          ...histData[key]
-        })).sort((a, b) => b.id.localeCompare(a.id));
-        setHistory(histArray);
-      }
-      setLoading(false);
-    }
-    
-    loadInventory();
-  }, []);
+    if (!isInitialized) initializeStore();
+  }, [isInitialized, initializeStore]);
 
-  const refreshData = async () => {
-    setLoading(true);
-    await refreshCatalog();
-    
-    const histData = await fetchData('inventory_history');
-    if (histData) {
-      const histArray = Object.keys(histData).map(key => ({
+  useEffect(() => {
+    if (inventory_history) {
+      const histArray = Object.keys(inventory_history).map(key => ({
         id: key,
-        ...histData[key]
+        ...inventory_history[key]
       })).sort((a, b) => b.id.localeCompare(a.id));
       setHistory(histArray);
     } else {
       setHistory([]);
     }
+    setLoading(false);
+  }, [inventory_history]);
 
+  const refreshData = async () => {
+    setLoading(true);
+    await refreshCatalog();
+    await refreshInventoryHistory();
     setLoading(false);
   };
 

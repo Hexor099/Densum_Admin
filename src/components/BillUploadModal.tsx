@@ -3,7 +3,8 @@
 import { useState, useRef } from "react";
 import { Camera, X, Loader2, FileCheck, AlertCircle, Building2 } from "lucide-react";
 import { parseBillImageAction } from "@/app/actions/inventory";
-import { fetchData, writeData, atomicIncrement } from "@/lib/firebase";
+import { fetchData, writeData, atomicIncrement, storage } from "@/lib/firebase";
+import { ref as storageRef, uploadString, getDownloadURL } from "firebase/storage";
 import { generateId } from "@/lib/utils";
 import { useEffect } from "react";
 
@@ -46,6 +47,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       setFile(selectedFile);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(URL.createObjectURL(selectedFile));
 
       if (selectedFile.type.startsWith('image/')) {
@@ -177,6 +179,13 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
       const supplierName = suppliers[selectedSupplier]?.name || 'Unknown Supplier';
       const actualBillDate = parsedBill.billDate || new Date().toISOString().split('T')[0];
 
+      let imageUrl = null;
+      if (fullDataUrl) {
+        const imgRef = storageRef(storage, `bills/${billId}`);
+        await uploadString(imgRef, fullDataUrl, 'data_url');
+        imageUrl = await getDownloadURL(imgRef);
+      }
+
       await writeData(`bills/${billId}`, {
         date: actualBillDate,
         invoiceNo: parsedBill.invoiceNo,
@@ -184,7 +193,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         supplierName: supplierName,
         totalAmount: parsedBill.totalAmount,
         items: parsedBill.items,
-        image: fullDataUrl // Saving as base64 string directly in RTDB
+        image: imageUrl
       });
 
       // Update Supplier Ledger and Balance

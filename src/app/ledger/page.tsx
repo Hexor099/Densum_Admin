@@ -7,10 +7,10 @@ import { sendWhatsAppAction } from '@/app/actions/whatsapp';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as xlsx from 'xlsx';
+import { useStore } from '@/store/useStore';
 
 export default function LedgerPage() {
-  const [doctors, setDoctors] = useState<any>({});
-  const [ledger, setLedger] = useState<any>({});
+  const { doctors, ledger, isInitialized, initializeStore, refreshDoctors, refreshLedger } = useStore();
   const [selectedDocId, setSelectedDocId] = useState<string>('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [txType, setTxType] = useState<'Payment' | 'Bill' | 'Credit Note' | 'Debit Note'>('Payment');
@@ -33,17 +33,13 @@ export default function LedgerPage() {
   const [dateTo, setDateTo] = useState(defaultFYEnd);
 
   useEffect(() => {
-    async function loadData() {
-      const docs = await fetchData('doctors');
-      const ldgr = await fetchData('ledger');
+    if (!isInitialized) initializeStore();
+  }, [isInitialized, initializeStore]);
+
+  useEffect(() => {
+    async function loadExcelMaterials() {
       const excel = await fetchData('excelData');
       
-      if (docs) {
-        setDoctors(docs);
-        if (Object.keys(docs).length > 0) setSelectedDocId(Object.keys(docs)[0]);
-      }
-      if (ldgr) setLedger(ldgr);
-
       if (excel) {
         const materials = new Set<string>();
         Object.values(excel).forEach((rows: any) => {
@@ -59,8 +55,14 @@ export default function LedgerPage() {
         setUniqueMaterials(Array.from(materials).sort());
       }
     }
-    loadData();
+    loadExcelMaterials();
   }, []);
+
+  useEffect(() => {
+    if (Object.keys(doctors).length > 0 && !selectedDocId) {
+      setSelectedDocId(Object.keys(doctors)[0]);
+    }
+  }, [doctors, selectedDocId]);
 
   const selectedDoc = doctors[selectedDocId] || {};
   const transactions = ledger[selectedDocId] || [];
@@ -193,15 +195,13 @@ export default function LedgerPage() {
     };
 
     const updatedTransactions = [...transactions, newTransaction];
-    const newBalance = (Number(selectedDoc.balance) || 0) + txAmount;
 
-    // Optimistic update
-    setLedger({ ...ledger, [selectedDocId]: updatedTransactions });
-    setDoctors({ ...doctors, [selectedDocId]: { ...selectedDoc, balance: newBalance } });
-    
     // Save to Firebase
     await writeData(`ledger/${selectedDocId}`, updatedTransactions);
     await atomicIncrement(`doctors/${selectedDocId}/balance`, txAmount);
+    
+    await refreshLedger();
+    await refreshDoctors();
     
     toast.success(`Recorded ${txType} of ₹${amount} for ${selectedDocId}`);
     setPaymentAmount('');
@@ -209,9 +209,8 @@ export default function LedgerPage() {
   };
 
   const savePhone = async () => {
-    const updatedDoc = { ...selectedDoc, phone: phoneInput };
-    setDoctors({ ...doctors, [selectedDocId]: updatedDoc });
     await writeData(`doctors/${selectedDocId}/phone`, phoneInput);
+    await refreshDoctors();
     setIsEditingPhone(false);
   };
 
@@ -223,13 +222,8 @@ export default function LedgerPage() {
     
     const updatedPrices = { ...(selectedDoc.prices || {}), [matName]: rate };
     
-    // Optimistic
-    setDoctors({
-      ...doctors,
-      [selectedDocId]: { ...selectedDoc, prices: updatedPrices }
-    });
-    
     await writeData(`doctors/${selectedDocId}/prices`, updatedPrices);
+    await refreshDoctors();
     setMaterialName('');
     setMaterialRate('');
   };
@@ -238,12 +232,8 @@ export default function LedgerPage() {
     const updatedPrices = { ...(selectedDoc.prices || {}) };
     delete updatedPrices[matName];
     
-    setDoctors({
-      ...doctors,
-      [selectedDocId]: { ...selectedDoc, prices: updatedPrices }
-    });
-    
     await writeData(`doctors/${selectedDocId}/prices`, updatedPrices);
+    await refreshDoctors();
   };
 
   return (

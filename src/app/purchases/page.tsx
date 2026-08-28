@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Receipt, Search, Image as ImageIcon, ExternalLink, Calendar, Trash2 } from 'lucide-react';
-import { fetchData, writeData } from '@/lib/firebase';
+import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
 import { toast } from 'sonner';
+import { useStore } from '@/store/useStore';
 
 export default function PurchasesPage() {
+  const { bills: billsData, isInitialized, initializeStore, refreshBills, expenses, refreshExpenses } = useStore();
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,20 +15,22 @@ export default function PurchasesPage() {
   const [selectedBill, setSelectedBill] = useState<any | null>(null);
 
   useEffect(() => {
-    async function loadData() {
-      const billsData = await fetchData('bills');
-      if (billsData) {
-        // Bills are stored with a timestamp ID, we can sort them newest first
-        const sortedBills = Object.entries(billsData).map(([id, data]: [string, any]) => ({
-          id,
-          ...data
-        })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setBills(sortedBills);
-      }
+    if (!isInitialized) initializeStore();
+  }, [isInitialized, initializeStore]);
+
+  useEffect(() => {
+    if (billsData && Object.keys(billsData).length > 0) {
+      const sortedBills = Object.entries(billsData).map(([id, data]: [string, any]) => ({
+        id,
+        ...data
+      })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setBills(sortedBills);
+      setLoading(false);
+    } else if (isInitialized) {
+      setBills([]);
       setLoading(false);
     }
-    loadData();
-  }, []);
+  }, [billsData, isInitialized]);
 
   const filteredBills = useMemo(() => {
     return bills.filter(b => 
@@ -57,7 +61,6 @@ export default function PurchasesPage() {
       }
 
       // 2. Delete the associated Expense
-      const expenses = await fetchData('expenses');
       if (expenses) {
         const expensesArray = Array.isArray(expenses) ? expenses : Object.values(expenses);
         const updatedExpenses = expensesArray.filter((e: any) => {
@@ -69,6 +72,7 @@ export default function PurchasesPage() {
           return true; // Keep it
         });
         await writeData('expenses', updatedExpenses);
+        await refreshExpenses();
       }
 
       // 3. Revert Supplier Ledger and Balance
@@ -84,18 +88,14 @@ export default function PurchasesPage() {
           await writeData(`supplier_ledger/${supplierId}`, updatedLedger);
         }
         
-        const currentSupplier = await fetchData(`suppliers/${supplierId}`);
-        if (currentSupplier) {
-          const currentBalance = Number(currentSupplier.balance) || 0;
-          await writeData(`suppliers/${supplierId}/balance`, currentBalance - billAmount);
-        }
+        await atomicIncrement(`suppliers/${supplierId}/balance`, -billAmount);
       }
 
       // 4. Delete the Bill itself
       await writeData(`bills/${bill.id}`, null);
       
       // Update local state
-      setBills(prev => prev.filter(b => b.id !== bill.id));
+      await refreshBills();
     } catch (err) {
       console.error("Failed to delete bill:", err);
       toast.error("An error occurred while deleting the bill.");
