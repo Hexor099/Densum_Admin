@@ -5,7 +5,6 @@ import { TrendingUp, TrendingDown, Receipt, DollarSign, Plus, Calculator, AlertT
 import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
-import * as xlsx from 'xlsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { useStore } from '@/store/useStore';
 
@@ -68,7 +67,7 @@ export default function ExpensesPage() {
       .sort((a, b) => b.value - a.value);
   }, [filteredExpenses]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredExpenses.length === 0) {
       toast.error("No expenses in the selected date range to export.");
       return;
@@ -80,6 +79,14 @@ export default function ExpensesPage() {
       'Amount (INR)': e.amount
     }));
 
+    exportData.push({
+      Date: 'TOTAL',
+      Category: '',
+      Description: '',
+      'Amount (INR)': totalExpenses
+    });
+
+    const xlsx = await import('xlsx');
     const worksheet = xlsx.utils.json_to_sheet(exportData);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, "Expenses");
@@ -247,18 +254,7 @@ export default function ExpensesPage() {
             Export
           </button>
           
-          <button 
-            onClick={async () => {
-              if (confirm('Are you sure you want to completely clear all expenses? This is for testing only.')) {
-                await writeData('expenses', null);
-                await refreshExpenses();
-              }
-            }}
-            className="px-4 py-2 bg-red-500/20 text-red-400 font-bold rounded-lg hover:bg-red-500/30 transition-all border border-red-500/30 flex items-center gap-2"
-          >
-            <AlertTriangle size={18} />
-            Clear
-          </button>
+
         </div>
       </header>
 

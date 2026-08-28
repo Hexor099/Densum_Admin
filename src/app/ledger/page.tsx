@@ -6,7 +6,6 @@ import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
-import * as xlsx from 'xlsx';
 import { useStore } from '@/store/useStore';
 
 export default function LedgerPage() {
@@ -71,7 +70,7 @@ export default function LedgerPage() {
     return transactions.filter((tx: any) => tx.date >= dateFrom && tx.date <= dateTo);
   }, [transactions, dateFrom, dateTo]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredTransactions.length === 0) {
       toast.error("No transactions in the selected date range to export.");
       return;
@@ -98,6 +97,7 @@ export default function LedgerPage() {
       };
     });
 
+    const xlsx = await import('xlsx');
     const worksheet = xlsx.utils.json_to_sheet(exportData);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, "Ledger");
@@ -194,10 +194,9 @@ export default function LedgerPage() {
       refNumber: refNumber || null
     };
 
-    const updatedTransactions = [...transactions, newTransaction];
-
-    // Save to Firebase
-    await writeData(`ledger/${selectedDocId}`, updatedTransactions);
+    // Save to Firebase atomically
+    const { appendToList } = await import('@/lib/firebase');
+    await appendToList(`ledger/${selectedDocId}`, newTransaction);
     await atomicIncrement(`doctors/${selectedDocId}/balance`, txAmount);
     
     await refreshLedger();

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { fetchData } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { ref, onValue } from 'firebase/database';
 
 interface AppState {
   doctors: Record<string, any>;
@@ -13,7 +14,7 @@ interface AppState {
   inventory_history: Record<string, any>;
   isInitialized: boolean;
   
-  initializeStore: () => Promise<void>;
+  initializeStore: () => void;
   refreshDoctors: () => Promise<void>;
   refreshSuppliers: () => Promise<void>;
   refreshCatalog: () => Promise<void>;
@@ -37,83 +38,41 @@ export const useStore = create<AppState>((set, get) => ({
   inventory_history: {},
   isInitialized: false,
 
-  initializeStore: async () => {
+  initializeStore: () => {
     if (get().isInitialized) return;
-    try {
-      const [
-        doctorsData, suppliersData, catalogData, settingsData,
-        ledgerData, expensesData, billsData, suppLedgerData, invHistData
-      ] = await Promise.all([
-        fetchData('doctors'),
-        fetchData('suppliers'),
-        fetchData('lab_catalog'),
-        fetchData('settings'),
-        fetchData('ledger'),
-        fetchData('expenses'),
-        fetchData('bills'),
-        fetchData('supplier_ledger'),
-        fetchData('inventory_history')
-      ]);
+    
+    const paths = [
+      { key: 'doctors', path: 'doctors' },
+      { key: 'suppliers', path: 'suppliers' },
+      { key: 'catalog', path: 'lab_catalog' },
+      { key: 'settings', path: 'settings' },
+      { key: 'ledger', path: 'ledger' },
+      { key: 'expenses', path: 'expenses' },
+      { key: 'bills', path: 'bills' },
+      { key: 'supplier_ledger', path: 'supplier_ledger' },
+      { key: 'inventory_history', path: 'inventory_history' },
+    ];
 
-      set({
-        doctors: doctorsData || {},
-        suppliers: suppliersData || {},
-        catalog: catalogData || {},
-        settings: settingsData || {},
-        ledger: ledgerData || {},
-        expenses: expensesData || {},
-        bills: billsData || {},
-        supplier_ledger: suppLedgerData || {},
-        inventory_history: invHistData || {},
-        isInitialized: true
+    paths.forEach(({ key, path }) => {
+      const dbRef = ref(db, path);
+      onValue(dbRef, (snapshot) => {
+        set({ [key]: snapshot.exists() ? snapshot.val() : {} });
+      }, (error) => {
+        console.error(`Error syncing ${path}:`, error);
       });
-    } catch (error) {
-      console.error("Failed to initialize store:", error);
-    }
+    });
+
+    set({ isInitialized: true });
   },
 
-  refreshDoctors: async () => {
-    const doctorsData = await fetchData('doctors');
-    set({ doctors: doctorsData || {} });
-  },
-
-  refreshSuppliers: async () => {
-    const suppliersData = await fetchData('suppliers');
-    set({ suppliers: suppliersData || {} });
-  },
-
-  refreshCatalog: async () => {
-    const catalogData = await fetchData('lab_catalog');
-    set({ catalog: catalogData || {} });
-  },
-
-  refreshSettings: async () => {
-    const settingsData = await fetchData('settings');
-    set({ settings: settingsData || {} });
-  },
-
-  refreshLedger: async () => {
-    const ledgerData = await fetchData('ledger');
-    set({ ledger: ledgerData || {} });
-  },
-
-  refreshExpenses: async () => {
-    const expensesData = await fetchData('expenses');
-    set({ expenses: expensesData || {} });
-  },
-
-  refreshBills: async () => {
-    const billsData = await fetchData('bills');
-    set({ bills: billsData || {} });
-  },
-
-  refreshSupplierLedger: async () => {
-    const suppLedgerData = await fetchData('supplier_ledger');
-    set({ supplier_ledger: suppLedgerData || {} });
-  },
-
-  refreshInventoryHistory: async () => {
-    const invHistData = await fetchData('inventory_history');
-    set({ inventory_history: invHistData || {} });
-  }
+  // Refresh functions are now no-ops because Firebase onValue keeps the store perfectly synced in real-time
+  refreshDoctors: async () => {},
+  refreshSuppliers: async () => {},
+  refreshCatalog: async () => {},
+  refreshSettings: async () => {},
+  refreshLedger: async () => {},
+  refreshExpenses: async () => {},
+  refreshBills: async () => {},
+  refreshSupplierLedger: async () => {},
+  refreshInventoryHistory: async () => {}
 }));

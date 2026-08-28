@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search } from 'lucide-react';
+import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchData } from '@/lib/firebase';
 import { useStore } from '@/store/useStore';
@@ -87,7 +87,7 @@ export function Navigation() {
   }
 
   return (
-    <nav className="w-64 bg-panel border-r border-panel-border h-screen flex flex-col fixed left-0 top-0 z-50">
+    <nav className="w-64 bg-panel border-r border-panel-border h-full flex flex-col z-50 relative">
       <div className="p-6 border-b border-panel-border flex items-center justify-center gap-3 bg-black">
         <img src="/app-logo.png" alt="Densum Logo" className="w-12 h-12 object-contain rounded-xl drop-shadow-[0_0_15px_rgba(0,194,255,0.4)]" />
         <h1 className="text-2xl font-bold text-accent-glow tracking-widest drop-shadow-[0_0_10px_rgba(0,194,255,0.5)]">DENSUM</h1>
@@ -155,6 +155,21 @@ export function Navigation() {
             </Link>
           );
         })}
+      </div>
+      
+      <div className="p-4 border-t border-panel-border/50 bg-black/20">
+        <button
+          onClick={() => {
+            if(confirm('Are you sure you want to logout?')) {
+               document.cookie = "auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+               window.location.href = '/login';
+            }
+          }}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 font-medium tracking-wide"
+        >
+          <LogOut size={20} />
+          Logout
+        </button>
       </div>
     </nav>
   );

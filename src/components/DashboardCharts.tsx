@@ -67,7 +67,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
     return { doctors: docs, months: allMonths };
   }, [data]);
 
-  const handleUpdateChart = () => {
+  useEffect(() => {
     if (!data) return;
 
     let newChartData: any[] = [];
@@ -166,7 +166,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
     }
 
     setChartData(newChartData);
-  };
+  }, [data, selectedDoc, selectedMonth, months]);
 
   // Default empty state
   if (!data) {
@@ -201,19 +201,13 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
             {months.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
 
-          <button 
-            onClick={handleUpdateChart}
-            className="px-4 py-2 bg-accent/10 border border-accent/20 text-accent font-semibold rounded-lg hover:bg-accent/20 transition-all text-sm shadow-[0_0_10px_rgba(0,194,255,0.2)]"
-          >
-            Update Chart
-          </button>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 relative">
         {chartData.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-foreground/50 text-sm">
-            Click "Update Chart" to load data or adjust filters.
+            No data available for the selected filters.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">

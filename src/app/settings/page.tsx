@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
 
   const storeSettings = useStore(state => state.settings);
-  const refreshSettings = useStore(state => state.refreshSettings);
+  const { refreshSettings, suppliers: storeSuppliers } = useStore();
   const [isStoreLoaded, setIsStoreLoaded] = useState(false);
 
   useEffect(() => {
@@ -289,6 +289,54 @@ export default function SettingsPage() {
               <Save size={18} />
             )}
             Save Changes
+          </button>
+        </div>
+      </div>
+
+      {/* Data Management Section (Testing) */}
+      <div className="bg-panel rounded-xl border border-red-500/30 p-8 shadow-lg mt-8">
+        <div className="flex items-center gap-3 mb-8 pb-4 border-b border-panel-border/50">
+          <AlertTriangle size={24} className="text-red-400" />
+          <h2 className="text-xl font-bold text-white">Data Management (Testing)</h2>
+        </div>
+        <p className="text-foreground/70 mb-6 text-sm">
+          Warning: These actions are destructive and cannot be undone. They will permanently delete data from your database.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <button 
+            onClick={async () => {
+              if (confirm('Are you sure you want to completely clear the inventory and history? This is for testing only.')) {
+                setLoading(true);
+                await writeData('lab_catalog', null);
+                await writeData('inventory_history', null);
+                await writeData('bills', null);
+                await writeData('supplier_ledger', null);
+                for (const id of Object.keys(storeSuppliers)) {
+                  await writeData(`suppliers/${id}/balance`, 0);
+                }
+                toast.success('Inventory cleared successfully');
+                setLoading(false);
+              }
+            }}
+            className="px-5 py-3 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all border border-red-500/30 flex items-center gap-2"
+          >
+            <Trash2 size={20} />
+            Clear Inventory
+          </button>
+          
+          <button 
+            onClick={async () => {
+              if (confirm('Are you sure you want to completely clear all expenses? This is for testing only.')) {
+                setLoading(true);
+                await writeData('expenses', null);
+                toast.success('Expenses cleared successfully');
+                setLoading(false);
+              }
+            }}
+            className="px-5 py-3 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all border border-red-500/30 flex items-center gap-2"
+          >
+            <Trash2 size={20} />
+            Clear Expenses
           </button>
         </div>
       </div>

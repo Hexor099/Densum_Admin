@@ -114,13 +114,11 @@ export default function SuppliersPage() {
       refNumber: paymentForm.refNumber
     };
 
-    const docTxs = [...(ledger[selectedSupplier] || [])];
-    docTxs.push(newTx);
-    
     setIsPaymentModalOpen(false);
 
-    // Write to Firebase
-    await writeData(`supplier_ledger/${selectedSupplier}`, docTxs);
+    // Write to Firebase atomically
+    const { appendToList } = await import('@/lib/firebase');
+    await appendToList(`supplier_ledger/${selectedSupplier}`, newTx);
     await atomicIncrement(`suppliers/${selectedSupplier}/balance`, -amountNum);
     
     await refreshSuppliers();

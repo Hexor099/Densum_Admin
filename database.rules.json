@@ -1,0 +1,24 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    
+    "doctors": {
+      ".indexOn": ["name", "phone"]
+    },
+    "suppliers": {
+      ".indexOn": ["name"]
+    },
+    "ledger": {
+      "$doctorId": {
+        ".indexOn": ["date", "type"]
+      }
+    },
+    "expenses": {
+      ".indexOn": ["date", "category"]
+    },
+    "bills": {
+      ".indexOn": ["date", "supplierId"]
+    }
+  }
+}

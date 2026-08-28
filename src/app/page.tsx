@@ -104,14 +104,18 @@ export default function Home() {
             );
 
             if (!alreadyLogged) {
+              const safeId = `auto_${currentMonthPrefix}_${generateId().substring(0, 5)}_${dayOfMonth}`; 
+              // To make it truly deterministic and prevent race conditions across tabs:
+              const deterministicId = `auto_${currentMonthPrefix}_${rec.category.replace(/[^a-zA-Z0-9]/g, '')}_${dayOfMonth}`;
+              
               const newExp = {
-                id: generateId(),
+                id: deterministicId,
                 date: `${currentMonthPrefix}-${String(dayOfMonth).padStart(2, '0')}`,
                 category: rec.category,
                 amount: Number(rec.amount) || 0,
                 desc: `[Auto] ${rec.desc}`
               };
-              writeData(`expenses/${newExp.id}`, newExp);
+              writeData(`expenses/${deterministicId}`, newExp);
               expensesChanged = true;
             }
           }

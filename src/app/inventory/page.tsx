@@ -7,7 +7,6 @@ import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useStore } from '@/store/useStore';
 import { BillUploadModal } from '@/components/BillUploadModal';
-import * as xlsx from 'xlsx';
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -165,7 +164,7 @@ export default function InventoryPage() {
     window.open(url, '_blank');
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredCatalog.length === 0) {
       toast.error("No inventory items to export.");
       return;
@@ -179,6 +178,7 @@ export default function InventoryPage() {
       'Last Purchase Rate (₹)': item.last_purchase_rate || '-'
     }));
 
+    const xlsx = await import('xlsx');
     const worksheet = xlsx.utils.json_to_sheet(exportData);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, "Inventory");
@@ -203,25 +203,7 @@ export default function InventoryPage() {
       </header>
       
       <div className="flex flex-col md:flex-row items-center justify-end gap-4 mb-6">
-          <button 
-            onClick={async () => {
-              if (confirm('Are you sure you want to completely clear the inventory and history? This is for testing only.')) {
-                setLoading(true);
-                await writeData('lab_catalog', null);
-                await writeData('inventory_history', null);
-                await writeData('bills', null);
-                await writeData('supplier_ledger', null);
-                for (const id of Object.keys(storeSuppliers)) {
-                  await writeData(`suppliers/${id}/balance`, 0);
-                }
-                await refreshData();
-              }
-            }}
-            className="w-full md:w-auto px-5 py-3 bg-red-500/20 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all border border-red-500/30 flex items-center justify-center gap-2"
-          >
-            <AlertTriangle size={20} />
-            Clear Inventory
-          </button>
+
           <button 
             onClick={handleExportExcel}
             className="w-full md:w-auto px-5 py-3 bg-green-500/20 text-green-400 font-bold rounded-xl hover:bg-green-500/30 transition-all border border-green-500/30 flex items-center justify-center gap-2"

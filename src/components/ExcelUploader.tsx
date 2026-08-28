@@ -5,9 +5,10 @@ import { RefreshCw, FileText, AlertCircle, Upload, CheckCircle2, CloudUpload, Cl
 import { toast } from 'sonner';
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
-import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
+import { fetchData, writeData, atomicIncrement, appendToList } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
 import { getVal, generateId } from '@/lib/utils';
+import { useStore } from '@/store/useStore';
 
 export interface ExcelUploaderProps {
   onDataProcessed?: (data: Record<string, any[]>) => void;
@@ -20,19 +21,11 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [doctorsData, setDoctorsData] = useState<Record<string, any>>({});
-  const [settings, setSettings] = useState<any>({});
+  const { doctors: doctorsData, settings, refreshDoctors, refreshSettings, refreshLedger } = useStore();
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
-
+  
   useEffect(() => {
-    // Load doctor pricing and lab settings from Firebase
-    async function loadData() {
-      const docs = await fetchData('doctors');
-      if (docs) setDoctorsData(docs);
-      
-      const sets = await fetchData('settings');
-      if (sets) setSettings(sets);
-
+    async function loadCloudData() {
       const cloudData = await fetchData('excelData');
       if (cloudData) {
         setAllSheetsData(cloudData);
@@ -41,7 +34,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         if (sheets.length > 0) setCurrentSheet(sheets[0]);
       }
     }
-    loadData();
+    loadCloudData();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,16 +61,14 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         
         // Auto-create missing doctors in Firebase
         if (result.sheetNames) {
-          const updatedDocs = { ...doctorsData };
           let changed = false;
           for (const docName of result.sheetNames) {
-            if (!updatedDocs[docName]) {
-               updatedDocs[docName] = { balance: 0, prices: {} };
+            if (!doctorsData[docName]) {
                changed = true;
-               await writeData(`doctors/${docName}`, updatedDocs[docName]);
+               await writeData(`doctors/${docName}`, { balance: 0, prices: {} });
             }
           }
-          if (changed) setDoctorsData(updatedDocs);
+          if (changed) await refreshDoctors();
         }
 
         if (result.sheetNames && result.sheetNames.length > 0 && !currentSheet) {
@@ -272,18 +263,17 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           amount: totalInclusive,
           description: invoiceDescription
         };
-        const updatedTransactions = [...currentLedger, newTransaction];
-        await writeData(`ledger/${currentSheet}`, updatedTransactions);
+        await appendToList(`ledger/${currentSheet}`, newTransaction);
 
         // Update balance
         await atomicIncrement(`doctors/${currentSheet}/balance`, totalInclusive);
-        const freshDoc = await fetchData(`doctors/${currentSheet}`);
-        setDoctorsData({ ...doctorsData, [currentSheet]: freshDoc || docProfile });
+        await refreshDoctors();
+        await refreshLedger();
 
         // Auto-increment invoice sequence number
         const nextSeq = (Number(settings.invoiceSequence) || 1) + 1;
-        setSettings({ ...settings, invoiceSequence: nextSeq });
         await writeData('settings/invoiceSequence', nextSeq);
+        await refreshSettings();
         
         toast.success(`Invoice generated and ₹${totalInclusive.toFixed(2)} added to ${currentSheet}'s ledger!`);
       }
@@ -365,13 +355,10 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           description: invoiceDescription
         };
         
-        const updatedTransactions = [...currentLedger, newTransaction];
-        await writeData(`ledger/${sheet}`, updatedTransactions);
+        await appendToList(`ledger/${sheet}`, newTransaction);
 
         // Update Balance
         await atomicIncrement(`doctors/${sheet}/balance`, totalInclusive);
-        const freshDoc = await fetchData(`doctors/${sheet}`);
-        newDocsData[sheet] = freshDoc || docProfile;
         
         processedCount++;
         
@@ -384,8 +371,9 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       }
     }
 
-    setSettings({ ...settings, invoiceSequence: localInvoiceSequence });
-    setDoctorsData(newDocsData);
+    await refreshSettings();
+    await refreshDoctors();
+    await refreshLedger();
     if (processedCount > 0 || skippedCount > 0) {
       toast.success(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!${skippedCount > 0 ? ` Skipped ${skippedCount} doctors who already had bills generated for ${selectedMonth}.` : ''}`);
     } else {
@@ -397,15 +385,14 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     if (!confirm("Are you sure you want to clear the ledger for ALL doctors? This will reset all balances to 0 and erase all transaction history. This cannot be undone.")) return;
     setIsSyncing(true);
     try {
-      const updatedDocs = { ...doctorsData };
       let count = 0;
-      for (const docName of Object.keys(updatedDocs)) {
+      for (const docName of Object.keys(doctorsData)) {
         await writeData(`ledger/${docName}`, null);
-        updatedDocs[docName].balance = 0;
         await writeData(`doctors/${docName}/balance`, 0);
         count++;
       }
-      setDoctorsData(updatedDocs);
+      await refreshDoctors();
+      await refreshLedger();
       toast.success(`Successfully cleared ledgers and reset balances for ${count} doctors.`);
     } catch (err: any) {
       toast.error("Failed to clear ledgers: " + (err.message || "Unknown error"));
