@@ -194,6 +194,10 @@ export default function InventoryPage() {
                 await writeData('lab_catalog', null);
                 await writeData('inventory_history', null);
                 await writeData('bills', null);
+                await writeData('supplier_ledger', null);
+                for (const id of Object.keys(storeSuppliers)) {
+                  await writeData(`suppliers/${id}/balance`, 0);
+                }
                 await refreshData();
               }
             }}
