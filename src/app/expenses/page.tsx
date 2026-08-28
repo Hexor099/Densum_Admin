@@ -165,6 +165,7 @@ export default function ExpensesPage() {
           } else {
             toast.info(`Note: The original bill for Invoice #${invoiceNo} could not be found. The expense will still be deleted.`);
           }
+        }
         } else {
           const onlyExpense = confirm(`Do you want to ONLY delete this expense record without modifying inventory or balances? (Use this to fix duplicates)`);
           if (!onlyExpense) return;
