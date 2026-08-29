@@ -235,6 +235,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         }
 
         // Generate PDF with the corrected balance
+        const tempDocProfile = { ...docProfile, balance: prevBalance };
         const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
 
         // Stop here if it was already in the ledger
