@@ -193,74 +193,68 @@ export default function Home() {
         <p className="text-foreground/70">Overview of lab performance and invoice generation.</p>
       </header>
 
-      {/* KPI Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">Total Outstanding</h3>
-            <Banknote size={18} className="text-red-400" />
+      {/* KPI Widgets - Compact & Sleek */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+        <div className="bg-panel/40 backdrop-blur-sm rounded-xl border border-panel-border p-4 shadow-sm hover:border-red-500/30 transition-all flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Banknote size={14} className="text-red-400" />
+            <h3 className="text-foreground/60 font-semibold text-[11px] uppercase tracking-wider">Outstanding</h3>
           </div>
-          <div className="text-2xl font-bold text-red-400">₹{kpis.totalOutstanding.toLocaleString()}</div>
+          <div className="text-lg font-bold text-red-400">₹{kpis.totalOutstanding.toLocaleString()}</div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg relative overflow-hidden group hover:border-green-500/50 transition-colors">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-green-500/10 rounded-full blur-2xl group-hover:bg-green-500/20 transition-all"></div>
-          <h3 className="text-foreground/70 font-medium text-sm flex items-center justify-between relative z-10">
-            Revenue (Cash Collected)
-            <TrendingUp size={18} className="text-green-400" />
-          </h3>
-          <div className="text-2xl font-bold text-green-400">₹{kpis.thisMonthRevenue.toLocaleString()}</div>
-          <div className="text-xs text-foreground/50 mt-1">
-            {kpis.lastMonthRevenue > 0 ? (
+        <div className="bg-panel/40 backdrop-blur-sm rounded-xl border border-panel-border p-4 shadow-sm hover:border-green-500/30 transition-all flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute -right-4 -top-4 w-16 h-16 bg-green-500/10 rounded-full blur-xl"></div>
+          <div className="flex items-center gap-2 mb-1.5 relative z-10">
+            <TrendingUp size={14} className="text-green-400" />
+            <h3 className="text-foreground/60 font-semibold text-[11px] uppercase tracking-wider flex-1 truncate" title="Revenue (Cash Collected)">Revenue</h3>
+          </div>
+          <div className="text-lg font-bold text-green-400 relative z-10">₹{kpis.thisMonthRevenue.toLocaleString()}</div>
+          {kpis.lastMonthRevenue > 0 && (
+            <div className="text-[10px] text-foreground/50 mt-0.5 relative z-10">
               <span className={kpis.thisMonthRevenue >= kpis.lastMonthRevenue ? 'text-green-400' : 'text-red-400'}>
-                {(((kpis.thisMonthRevenue - kpis.lastMonthRevenue) / kpis.lastMonthRevenue) * 100).toFixed(1)}% vs last month
-              </span>
-            ) : "No data last month"}
-          </div>
-        </div>
-
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">Low Stock Items</h3>
-            <AlertTriangle size={18} className="text-orange-400" />
-          </div>
-          <div className="text-2xl font-bold text-orange-400">{kpis.lowStockCount}</div>
-        </div>
-
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">Overdue Payments (&gt;30d)</h3>
-            <AlertCircle size={18} className="text-purple-400" />
-          </div>
-          <div className="text-2xl font-bold text-purple-400">{kpis.overdueCount} <span className="text-sm font-normal text-foreground/50">doctors</span></div>
-        </div>
-
-        <div className="bg-panel rounded-xl border border-green-500/30 p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">FY Turnover</h3>
-            <ShieldCheck size={18} className="text-green-400" />
-          </div>
-          <div className="text-2xl font-bold text-white">₹{(kpis.fyTurnover / 100000).toFixed(1)}L</div>
-          <div className="mt-2">
-            <div className="w-full bg-black/40 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full transition-all ${kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000) > 0.8 ? 'bg-red-400' : 'bg-green-400'}`}
-                style={{ width: `${Math.min(100, (kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000)) * 100)}%` }}
-              ></div>
+                {kpis.thisMonthRevenue >= kpis.lastMonthRevenue ? '▲' : '▼'} {(((kpis.thisMonthRevenue - kpis.lastMonthRevenue) / kpis.lastMonthRevenue) * 100).toFixed(1)}%
+              </span> vs last mo
             </div>
-            <div className="text-xs text-foreground/50 mt-1">
-              {((kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000)) * 100).toFixed(1)}% of ₹{((Number(settings?.compositionTurnoverLimit) || 15000000) / 10000000).toFixed(1)} Cr limit
-            </div>
+          )}
+        </div>
+
+        <div className="bg-panel/40 backdrop-blur-sm rounded-xl border border-panel-border p-4 shadow-sm hover:border-orange-500/30 transition-all flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1.5">
+            <AlertTriangle size={14} className="text-orange-400" />
+            <h3 className="text-foreground/60 font-semibold text-[11px] uppercase tracking-wider">Low Stock</h3>
+          </div>
+          <div className="text-lg font-bold text-orange-400">{kpis.lowStockCount} <span className="text-xs font-normal text-foreground/40">items</span></div>
+        </div>
+
+        <div className="bg-panel/40 backdrop-blur-sm rounded-xl border border-panel-border p-4 shadow-sm hover:border-purple-500/30 transition-all flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1.5">
+            <AlertCircle size={14} className="text-purple-400" />
+            <h3 className="text-foreground/60 font-semibold text-[11px] uppercase tracking-wider">Overdue (&gt;30d)</h3>
+          </div>
+          <div className="text-lg font-bold text-purple-400">{kpis.overdueCount} <span className="text-xs font-normal text-foreground/40">docs</span></div>
+        </div>
+
+        <div className="bg-panel/40 backdrop-blur-sm rounded-xl border border-green-500/20 p-4 shadow-sm hover:border-green-500/40 transition-all flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1.5">
+            <ShieldCheck size={14} className="text-green-400" />
+            <h3 className="text-foreground/60 font-semibold text-[11px] uppercase tracking-wider">FY Turnover</h3>
+          </div>
+          <div className="text-lg font-bold text-white">₹{(kpis.fyTurnover / 100000).toFixed(1)}L</div>
+          <div className="mt-1.5 w-full bg-black/40 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all ${kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000) > 0.8 ? 'bg-red-400' : 'bg-green-400'}`}
+              style={{ width: `${Math.min(100, (kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000)) * 100)}%` }}
+            ></div>
           </div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">GST Liability ({settings?.compositionRate || 1}%)</h3>
-            <ShieldCheck size={18} className="text-accent" />
+        <div className="bg-panel/40 backdrop-blur-sm rounded-xl border border-panel-border p-4 shadow-sm hover:border-accent/40 transition-all flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1.5">
+            <ShieldCheck size={14} className="text-accent" />
+            <h3 className="text-foreground/60 font-semibold text-[11px] uppercase tracking-wider">GST Liability</h3>
           </div>
-          <div className="text-2xl font-bold text-accent">₹{kpis.compositionGSTLiability.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
-          <div className="text-xs text-foreground/50 mt-1">Due on FY turnover (Composition)</div>
+          <div className="text-lg font-bold text-accent">₹{kpis.compositionGSTLiability.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
         </div>
       </div>
 
