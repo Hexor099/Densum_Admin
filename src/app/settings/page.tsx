@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2, AlertTriangle, CreditCard, ShieldCheck } from 'lucide-react';
 import { fetchData, writeData } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -18,7 +18,14 @@ export default function SettingsPage() {
     state: 'Maharashtra',
     hsnCode: '9021',
     invoiceSequence: 1,
-    gstRate: 18.0
+    // Composition Scheme fields
+    compositionRate: 1.0, // 1% for manufacturers (0.5% CGST + 0.5% SGST)
+    compositionTurnoverLimit: 15000000, // ₹1.5 Crore
+    // ITR fields
+    panNumber: '',
+    bankName: '',
+    bankAccountNo: '',
+    bankIFSC: '',
   });
 
   const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
@@ -31,7 +38,7 @@ export default function SettingsPage() {
     if (storeSettings && Object.keys(storeSettings).length > 0 && !isStoreLoaded) {
       const { recurring_expenses, ...generalSettings } = storeSettings;
       if (Object.keys(generalSettings).length > 0) {
-        setFormData(generalSettings as any);
+        setFormData(prev => ({ ...prev, ...generalSettings } as any));
       }
       if (recurring_expenses) {
         setRecurringExpenses(Object.values(recurring_expenses));
@@ -39,16 +46,16 @@ export default function SettingsPage() {
       setIsStoreLoaded(true);
       setLoading(false);
     } else if (Object.keys(storeSettings).length === 0) {
-      // Still waiting for store to populate
-      setLoading(false); // don't block forever if empty
+      setLoading(false);
     }
   }, [storeSettings, isStoreLoaded]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    const numericFields = ['invoiceSequence', 'compositionRate', 'compositionTurnoverLimit'];
     setFormData({ 
       ...formData, 
-      [name]: name === 'invoiceSequence' || name === 'gstRate' ? Number(value) : value 
+      [name]: numericFields.includes(name) ? Number(value) : value 
     });
     setSaved(false);
   };
@@ -101,9 +108,10 @@ export default function SettingsPage() {
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Lab Settings</h1>
-        <p className="text-foreground/70">Configure your lab details, GST, and invoice settings.</p>
+        <p className="text-foreground/70">Configure your lab details, GST Composition Scheme, and ITR settings.</p>
       </header>
 
+      {/* General Configuration */}
       <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg">
         <div className="flex items-center gap-3 mb-8 pb-4 border-b border-panel-border/50">
           <SettingsIcon size={24} className="text-accent" />
@@ -147,13 +155,15 @@ export default function SettingsPage() {
 
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-foreground/70 mb-2">
-                <Hash size={16} /> Default GST Rate (%)
+                <CreditCard size={16} /> PAN Number
               </label>
               <input 
-                type="number" name="gstRate"
-                value={formData.gstRate} onChange={handleChange}
-                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
+                type="text" name="panNumber"
+                value={formData.panNumber} onChange={handleChange}
+                placeholder="ABCDE1234F"
+                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors uppercase"
               />
+              <p className="text-xs text-foreground/50 mt-1">Required for ITR filing.</p>
             </div>
           </div>
 
@@ -192,13 +202,92 @@ export default function SettingsPage() {
               value={formData.invoiceSequence} onChange={handleChange}
               className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
             />
-            <p className="text-xs text-foreground/50 mt-2">This will automatically increment when a new invoice is generated.</p>
+            <p className="text-xs text-foreground/50 mt-2">This will automatically increment when a new Bill of Supply is generated.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* GST Composition Scheme */}
+      <div className="bg-panel rounded-xl border border-green-500/30 p-8 shadow-lg">
+        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-panel-border/50">
+          <ShieldCheck size={24} className="text-green-400" />
+          <div>
+            <h2 className="text-xl font-bold text-white">GST Composition Scheme</h2>
+            <p className="text-xs text-green-400/80 mt-1">Section 10 of CGST Act — Manufacturer category</p>
+          </div>
+        </div>
+
+        <div className="mb-6 p-4 bg-green-500/5 border border-green-500/20 rounded-lg">
+          <p className="text-sm text-foreground/70">
+            Under the Composition Scheme, you pay a <strong className="text-green-400">flat tax on total turnover</strong> instead of charging GST to customers. 
+            Your invoices will be issued as <strong className="text-white">"Bill of Supply"</strong> (not Tax Invoice) and will include the mandatory disclaimer.
+            You <strong className="text-yellow-400">cannot claim Input Tax Credit (ITC)</strong> on purchases.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground/70 mb-2">
+              <Hash size={16} /> Composition Tax Rate (%)
+            </label>
+            <input 
+              type="number" name="compositionRate" step="0.1"
+              value={formData.compositionRate} onChange={handleChange}
+              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
+            />
+            <p className="text-xs text-foreground/50 mt-1">
+              Manufacturers: 1% (0.5% CGST + 0.5% SGST) • Service Providers: 6% (3% CGST + 3% SGST)
+            </p>
+          </div>
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground/70 mb-2">
+              <AlertTriangle size={16} /> Annual Turnover Limit (₹)
+            </label>
+            <input 
+              type="number" name="compositionTurnoverLimit"
+              value={formData.compositionTurnoverLimit} onChange={handleChange}
+              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
+            />
+            <p className="text-xs text-foreground/50 mt-1">
+              ₹1.5 Crore for regular states • ₹75 Lakh for special category states. You&apos;ll be alerted when approaching this limit.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Bank Details for ITR */}
+      <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg">
+        <div className="flex items-center gap-3 mb-8 pb-4 border-b border-panel-border/50">
+          <CreditCard size={24} className="text-accent" />
+          <h2 className="text-xl font-bold text-white">Bank Details (for ITR)</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-foreground/70 mb-2">Bank Name</label>
+            <input type="text" name="bankName" value={formData.bankName} onChange={handleChange}
+              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
+              placeholder="e.g. State Bank of India"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground/70 mb-2">Account Number</label>
+            <input type="text" name="bankAccountNo" value={formData.bankAccountNo} onChange={handleChange}
+              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
+              placeholder="e.g. 123456789012"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground/70 mb-2">IFSC Code</label>
+            <input type="text" name="bankIFSC" value={formData.bankIFSC} onChange={handleChange}
+              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors uppercase"
+              placeholder="e.g. SBIN0001234"
+            />
           </div>
         </div>
       </div>
 
       {/* Recurring Expenses Section */}
-      <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg mt-8">
+      <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg">
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-panel-border/50">
           <div className="flex items-center gap-3">
             <Repeat size={24} className="text-accent" />
@@ -236,10 +325,12 @@ export default function SettingsPage() {
                     className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
                   >
                     <option value="Rent">Rent</option>
-                    <option value="Salary">Salary</option>
-                    <option value="EMI">EMI</option>
+                    <option value="Salary">Salary &amp; Wages</option>
+                    <option value="EMI">EMI / Loan Interest</option>
                     <option value="Software">Software/Subscriptions</option>
-                    <option value="Utilities">Utilities</option>
+                    <option value="Utilities">Utilities (Power, Water)</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Professional Fees">Professional Fees (CA/Legal)</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">

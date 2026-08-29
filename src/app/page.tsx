@@ -6,7 +6,7 @@ import { ExcelUploader } from "@/components/ExcelUploader";
 import { writeData } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
-import { TrendingUp, AlertTriangle, AlertCircle, Banknote } from "lucide-react";
+import { TrendingUp, AlertTriangle, AlertCircle, Banknote, ShieldCheck } from "lucide-react";
 import { useStore } from '@/store/useStore';
 
 export default function Home() {
@@ -17,6 +17,8 @@ export default function Home() {
     lastMonthRevenue: 0,
     lowStockCount: 0,
     overdueCount: 0,
+    fyTurnover: 0,
+    compositionGSTLiability: 0,
   });
 
   const { doctors, ledger, catalog, settings, expenses, isInitialized, initializeStore, refreshExpenses } = useStore();
@@ -60,16 +62,37 @@ export default function Home() {
 
       Object.keys(ledger).forEach(docId => {
         (ledger[docId] || []).forEach((tx: any) => {
-          if (tx.type === 'Charge' || tx.type === 'Invoice' || tx.type === 'Invoice Generated' || tx.type === 'Bill') {
+          // Cash-Basis: Revenue is cash collected (Payments)
+          if (tx.type === 'Payment') {
             const txDate = new Date(tx.date);
             if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
-              revThisMonth += Number(tx.amount) || 0;
+              revThisMonth += Math.abs(Number(tx.amount) || 0);
             } else if (txDate.getMonth() === lastMonth && txDate.getFullYear() === lastMonthYear) {
-              revLastMonth += Number(tx.amount) || 0;
+              revLastMonth += Math.abs(Number(tx.amount) || 0);
             }
           }
         });
       });
+
+      // Calculate FY turnover (Apr–Mar)
+      const fyStartMonth = 3; // April = month index 3
+      const fyStartYear = currentMonth >= fyStartMonth ? currentYear : currentYear - 1;
+      const fyStart = new Date(fyStartYear, fyStartMonth, 1);
+      let fyTurnover = 0;
+
+      Object.keys(ledger).forEach(docId => {
+        (ledger[docId] || []).forEach((tx: any) => {
+          if (tx.type === 'Charge' || tx.type === 'Invoice' || tx.type === 'Invoice Generated' || tx.type === 'Bill') {
+            const txDate = new Date(tx.date);
+            if (txDate >= fyStart && txDate <= now) {
+              fyTurnover += Math.abs(Number(tx.amount) || 0);
+            }
+          }
+        });
+      });
+
+      const compositionRate = Number(settings?.compositionRate) || 1.0;
+      const compositionGSTLiability = fyTurnover * (compositionRate / 100);
 
       let lowStock = 0;
       Object.keys(catalog).forEach(itemId => {
@@ -84,8 +107,18 @@ export default function Home() {
         thisMonthRevenue: revThisMonth,
         lastMonthRevenue: revLastMonth,
         lowStockCount: lowStock,
-        overdueCount: overdue
+        overdueCount: overdue,
+        fyTurnover: fyTurnover,
+        compositionGSTLiability: compositionGSTLiability
       });
+
+      // Turnover threshold alert
+      const turnoverLimit = Number(settings?.compositionTurnoverLimit) || 15000000;
+      if (fyTurnover > turnoverLimit * 0.8 && fyTurnover < turnoverLimit) {
+        toast.warning(`⚠️ Your FY turnover (₹${(fyTurnover/100000).toFixed(1)}L) is approaching the Composition Scheme limit of ₹${(turnoverLimit/10000000).toFixed(1)} Cr!`, { id: 'turnover-alert' });
+      } else if (fyTurnover >= turnoverLimit) {
+        toast.error(`🚨 Your FY turnover has EXCEEDED the Composition Scheme limit! You must migrate to the Regular GST Scheme.`, { id: 'turnover-alert' });
+      }
 
       // Lazy evaluation of recurring expenses
       const recurring = settings?.recurring_expenses;
@@ -170,11 +203,12 @@ export default function Home() {
           <div className="text-2xl font-bold text-red-400">₹{kpis.totalOutstanding.toLocaleString()}</div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">Revenue (This Month)</h3>
+        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg relative overflow-hidden group hover:border-green-500/50 transition-colors">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-green-500/10 rounded-full blur-2xl group-hover:bg-green-500/20 transition-all"></div>
+          <h3 className="text-foreground/70 font-medium text-sm flex items-center justify-between relative z-10">
+            Revenue (Cash Collected)
             <TrendingUp size={18} className="text-green-400" />
-          </div>
+          </h3>
           <div className="text-2xl font-bold text-green-400">₹{kpis.thisMonthRevenue.toLocaleString()}</div>
           <div className="text-xs text-foreground/50 mt-1">
             {kpis.lastMonthRevenue > 0 ? (
@@ -199,6 +233,34 @@ export default function Home() {
             <AlertCircle size={18} className="text-purple-400" />
           </div>
           <div className="text-2xl font-bold text-purple-400">{kpis.overdueCount} <span className="text-sm font-normal text-foreground/50">doctors</span></div>
+        </div>
+
+        <div className="bg-panel rounded-xl border border-green-500/30 p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-foreground/70 font-semibold text-sm">FY Turnover</h3>
+            <ShieldCheck size={18} className="text-green-400" />
+          </div>
+          <div className="text-2xl font-bold text-white">₹{(kpis.fyTurnover / 100000).toFixed(1)}L</div>
+          <div className="mt-2">
+            <div className="w-full bg-black/40 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all ${kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000) > 0.8 ? 'bg-red-400' : 'bg-green-400'}`}
+                style={{ width: `${Math.min(100, (kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000)) * 100)}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-foreground/50 mt-1">
+              {((kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000)) * 100).toFixed(1)}% of ₹{((Number(settings?.compositionTurnoverLimit) || 15000000) / 10000000).toFixed(1)} Cr limit
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-foreground/70 font-semibold text-sm">GST Liability ({settings?.compositionRate || 1}%)</h3>
+            <ShieldCheck size={18} className="text-accent" />
+          </div>
+          <div className="text-2xl font-bold text-accent">₹{kpis.compositionGSTLiability.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+          <div className="text-xs text-foreground/50 mt-1">Due on FY turnover (Composition)</div>
         </div>
       </div>
 
