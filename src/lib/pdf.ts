@@ -46,7 +46,7 @@ function parsePalmerNotation(teethStr: string) {
   };
 }
 
-export async function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any) {
+export async function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any, monthName?: string) {
   const doc = new jsPDF();
   
   const labName = settings.labName || 'Densum Digital Lab';
@@ -209,7 +209,8 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
   doc.setFontSize(7);
   doc.text('This is a Bill of Supply issued under GST Composition Scheme (Section 10, CGST Act 2017).', 14, disclaimerY + 6);
   
-  doc.save(`Bill_of_Supply_${doctorName.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+  const monthSuffix = monthName ? `_${monthName.replace(/[^a-z0-9]/gi, '_')}` : '';
+  doc.save(`Bill_of_Supply_${doctorName.replace(/[^a-z0-9]/gi, '_')}${monthSuffix}.pdf`);
   
   return doc.output('datauristring');
 }

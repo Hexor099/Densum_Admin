@@ -240,7 +240,12 @@ export default function Home() {
             <ShieldCheck size={14} className="text-green-400" />
             <h3 className="text-foreground/60 font-semibold text-[11px] uppercase tracking-wider">FY Turnover</h3>
           </div>
-          <div className="text-lg font-bold text-white">₹{(kpis.fyTurnover / 100000).toFixed(1)}L</div>
+          <div className="text-lg font-bold text-white">
+            ₹{(kpis.fyTurnover / 100000).toFixed(1)}L
+            <span className="text-xs text-foreground/50 font-normal ml-1">
+              / ₹{((Number(settings?.compositionTurnoverLimit) || 15000000) / 10000000).toFixed(2).replace(/\.00$/, '').replace(/0$/, '')}Cr
+            </span>
+          </div>
           <div className="mt-1.5 w-full bg-black/40 rounded-full h-1.5 overflow-hidden">
             <div 
               className={`h-full rounded-full transition-all ${kpis.fyTurnover / (Number(settings?.compositionTurnoverLimit) || 15000000) > 0.8 ? 'bg-red-400' : 'bg-green-400'}`}

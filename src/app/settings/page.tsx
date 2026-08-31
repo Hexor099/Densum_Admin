@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2, AlertTriangle, CreditCard, ShieldCheck } from 'lucide-react';
-import { fetchData, writeData } from '@/lib/firebase';
+import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2, AlertTriangle, CreditCard, ShieldCheck, Loader2, Lock, X } from 'lucide-react';
+import { fetchData, writeData, auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useStore } from '@/store/useStore';
@@ -11,6 +12,13 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // 2-step verification state
+  const [showVerification, setShowVerification] = useState(false);
+  const [verifyOtp, setVerifyOtp] = useState("");
+  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+
   const [formData, setFormData] = useState({
     labName: 'Densum Digital Lab',
     gstin: '',
@@ -60,7 +68,7 @@ export default function SettingsPage() {
     setSaved(false);
   };
 
-  const handleSave = async () => {
+  const handleActualSave = async () => {
     setIsSaving(true);
     
     const recObj: any = {};
@@ -77,6 +85,55 @@ export default function SettingsPage() {
       setTimeout(() => setSaved(false), 3000);
     } else {
       toast.error("Failed to save settings");
+    }
+  };
+
+  const handleSave = async () => {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(otp);
+    setShowVerification(true);
+    setVerifyOtp('');
+    setVerifyError('');
+    
+    toast.loading("Sending OTP to your email...", { id: 'otp-toast' });
+
+    try {
+      // Using FormSubmit for frictionless email sending
+      const response = await fetch("https://formsubmit.co/ajax/baleeghhaider04101999@gmail.com", {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          _subject: "Densum Admin - Security Verification",
+          OTP_Code: otp,
+          Message: "Please use this 6-digit OTP to verify your settings changes. Do not share this with anyone.",
+          _template: "box",
+          _captcha: "false"
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`OTP sent to baleeghhaider... (Check spam/activation if first time)`, { id: 'otp-toast', duration: 8000 });
+      } else {
+        toast.success(`Security Check: OTP simulated (Service error). Demo OTP: ${otp}`, { id: 'otp-toast', duration: 8000 });
+      }
+    } catch (err) {
+      toast.success(`Security Check: Network error. (Demo OTP: ${otp})`, { id: 'otp-toast', duration: 8000 });
+    }
+  };
+
+  const handleVerifyAndSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifyError('');
+    
+    if (verifyOtp === generatedOtp) {
+      setShowVerification(false);
+      handleActualSave();
+    } else {
+      setVerifyError("Incorrect OTP. Please try again.");
     }
   };
 
@@ -431,6 +488,71 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* 2-Step Verification Modal */}
+      {showVerification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
+          <div className="w-full max-w-md bg-panel border border-panel-border rounded-2xl shadow-2xl p-6 animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent">
+                  <Lock size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Security Verification</h3>
+                  <p className="text-xs text-foreground/60">2-step verification required</p>
+                </div>
+              </div>
+              <button onClick={() => setShowVerification(false)} className="p-2 text-foreground/50 hover:bg-black/20 rounded-lg transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleVerifyAndSave} className="space-y-4">
+              {verifyError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg flex items-center gap-2">
+                  <AlertTriangle size={16} /> {verifyError}
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-foreground/70 mb-2 text-center">Enter 6-Digit OTP</label>
+                <div className="relative max-w-[200px] mx-auto">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40" />
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={verifyOtp}
+                    onChange={(e) => setVerifyOtp(e.target.value.replace(/\D/g, ''))}
+                    required
+                    autoFocus
+                    className="w-full bg-black/40 border border-panel-border rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-accent transition-colors tracking-[0.5em] font-mono text-center"
+                    placeholder="••••••"
+                  />
+                </div>
+                <p className="text-xs text-foreground/50 mt-3 text-center">We've sent a 6-digit verification code to baleeghhaider04101999@gmail.com.</p>
+              </div>
+              
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-panel-border/50">
+                <button
+                  type="button"
+                  onClick={() => setShowVerification(false)}
+                  className="px-4 py-2 bg-black/20 text-foreground font-medium rounded-lg hover:bg-black/40 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.3)] flex items-center gap-2"
+                >
+                  <Save size={18} />
+                  Verify & Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

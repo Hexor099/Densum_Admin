@@ -236,7 +236,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF with the corrected balance
         const tempDocProfile = { ...docProfile, balance: prevBalance };
-        const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
+        const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings, selectedMonth);
 
         // Stop here if it was already in the ledger
         if (isDuplicate) return;
@@ -314,7 +314,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF
         const currentSettings = { ...settings, invoiceSequence: localInvoiceSequence };
-        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings);
+        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings, selectedMonth);
 
         const newTransaction = {
           id: generateId(),
