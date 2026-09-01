@@ -240,22 +240,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF with the corrected balance
         const tempDocProfile = { ...docProfile, balance: prevBalance };
-        const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
-
-        // Send via WhatsApp
-        if (tempDocProfile.phone) {
-          const message = `Hello ${currentSheet}, here is your invoice for ${selectedMonth}. Please find the attached PDF.`;
-          
-          let phone = tempDocProfile.phone;
-          if (!phone.startsWith('+')) phone = '+91' + phone;
-          
-          const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
-          const popup = window.open(url, '_blank');
-          
-          if (!popup) {
-            toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site to send the invoice automatically.");
-          }
-        }
+        const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings, selectedMonth !== 'All' ? selectedMonth : undefined);
 
         // Stop here if it was already in the ledger
         if (isDuplicate) return;
@@ -333,23 +318,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF
         const currentSettings = { ...settings, invoiceSequence: localInvoiceSequence };
-        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings);
-
-        // Send via WhatsApp
-        if (docProfile.phone) {
-          const message = `Hello ${sheet}, here is your invoice for ${selectedMonth}. Please find the attached PDF.`;
-          
-          let phone = docProfile.phone;
-          if (!phone.startsWith('+')) phone = '+91' + phone;
-          
-          const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
-          const popup = window.open(url, '_blank');
-          
-          if (!popup) {
-            toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
-            break; // Stop the loop if popups are blocked
-          }
-        }
+        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings, selectedMonth !== 'All' ? selectedMonth : undefined);
 
         const newTransaction = {
           id: generateId(),
