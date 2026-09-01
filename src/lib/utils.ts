@@ -28,6 +28,54 @@ export function generateId(): string {
   return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 10);
 }
 
+/** Parses a date string into a Date object for sorting */
+export function parseDateString(val: string | undefined | null): Date {
+  if (!val) return new Date(0);
+  const str = String(val).trim();
+  
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return new Date(str);
+  }
+  
+  if (str.includes('/')) {
+    const parts = str.split('/');
+    if (parts.length === 3) {
+      let [m, d, y] = parts;
+      if (y.length === 2) y = '20' + y;
+      return new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+    }
+  }
+  
+  if (str.includes('-')) {
+     const parts = str.split('-');
+     if (parts.length === 3) {
+       let day = parseInt(parts[0], 10);
+       let month = parseInt(parts[1], 10);
+       let year = parseInt(parts[2], 10);
+       if (year < 100) year += 2000;
+       
+       if (day <= 31 && month <= 12) {
+         return new Date(year, month - 1, day);
+       }
+     }
+  }
+  
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+  
+  return new Date(0);
+}
+
+/** Formats a date for display consistently as M/D/YY */
+export function formatDateForDisplay(val: string | undefined | null): string {
+  if (!val || val === 'Not Delivered' || val === 'Unknown') return val || '';
+  const str = String(val).trim();
+  const d = parseDateString(str);
+  if (d.getTime() === 0) return str;
+  
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
+}
+
 // ─── TypeScript Interfaces ───────────────────────────────────────────────────
 
 export interface Doctor {

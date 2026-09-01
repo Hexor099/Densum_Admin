@@ -7,7 +7,7 @@ import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
 import { fetchData, writeData, atomicIncrement, appendToList } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
-import { getVal, generateId } from '@/lib/utils';
+import { getVal, generateId, parseDateString, formatDateForDisplay } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
 export interface ExcelUploaderProps {
@@ -192,11 +192,15 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   // Sort months properly (basic string sort or date sort)
   availableMonths.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-  // Filter data based on selected month
+  // Filter and sort data based on selected month
   const filteredData = enhancedData ? enhancedData.filter(row => {
     if (selectedMonth === 'All') return true;
     const dateVal = String(getVal(row, ['received date', 'date', 'order date']) || '');
     return getMonthYear(dateVal) === selectedMonth;
+  }).sort((a, b) => {
+    const dateA = parseDateString(getVal(a, ['received date', 'date', 'order date']) || '').getTime();
+    const dateB = parseDateString(getVal(b, ['received date', 'date', 'order date']) || '').getTime();
+    return dateB - dateA;
   }) : null;
 
   const handleGeneratePDF = async () => {
@@ -554,9 +558,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
                       const allKeys = Object.keys(filteredData[0]);
                       const preferredOrder = ['Patient Name', 'Received Date', 'Delivered Date', 'Tooth No', 'Work material', 'Units', 'Status', 'Rate', 'Total'];
                       const finalOrder = [...preferredOrder, ...allKeys.filter(k => !preferredOrder.includes(k))];
-                      return finalOrder.map((k: string, j: number) => (
-                        <td key={j} className="px-4 py-3 whitespace-nowrap">{String(row[k] ?? '')}</td>
-                      ));
+                      return finalOrder.map((k: string, j: number) => {
+                        let valStr = String(row[k] ?? '');
+                        if (k.toLowerCase().includes('date') && valStr) {
+                           valStr = formatDateForDisplay(valStr);
+                        }
+                        return <td key={j} className="px-4 py-3 whitespace-nowrap">{valStr}</td>;
+                      });
                     })()}
                   </tr>
                 ))}

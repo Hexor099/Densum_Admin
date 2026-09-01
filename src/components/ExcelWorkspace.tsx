@@ -5,6 +5,7 @@ import { CloudUpload, RefreshCw, Plus, FileSpreadsheet, PlusCircle, Edit2, Save,
 import { toast } from "sonner";
 import { fetchData, writeData } from "@/lib/firebase";
 import { AddEntryModal } from "./AddEntryModal";
+import { formatDateForDisplay, parseDateString } from "@/lib/utils";
 
 type DoctorSheet = {
   id: string;
@@ -91,14 +92,7 @@ export function ExcelWorkspace() {
     setActiveSheetId(id);
   };
 
-  const formatDateForDisplay = (val: string) => {
-    if (!val || val === 'Not Delivered') return val || '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-      const [y, m, d] = val.split('-');
-      return `${parseInt(m, 10)}/${parseInt(d, 10)}/${y.slice(2)}`;
-    }
-    return val;
-  };
+
 
   const formatDateForInput = (val: string) => {
     if (!val || val === 'Not Delivered') return '';
@@ -232,8 +226,14 @@ export function ExcelWorkspace() {
   if (isInitializing) return null;
 
   const activeSheet = sheets.find(s => s.id === activeSheetId);
-  // Only display rows that are not entirely empty
-  const displayRows = activeSheet?.rowData.filter(row => row && Object.values(row).some(v => v !== null && v !== undefined && v !== "")) || [];
+  // Only display rows that are not entirely empty, and sort by Received Date descending
+  const displayRows = activeSheet?.rowData
+    .filter(row => row && Object.values(row).some(v => v !== null && v !== undefined && v !== ""))
+    .sort((a, b) => {
+      const dateA = parseDateString(a['Received Date'] || a['Date'] || '').getTime();
+      const dateB = parseDateString(b['Received Date'] || b['Date'] || '').getTime();
+      return dateB - dateA; // Descending order
+    }) || [];
 
   return (
     <div className="flex flex-col h-full bg-background relative w-full overflow-hidden">
