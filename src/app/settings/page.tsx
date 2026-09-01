@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2, AlertTriangle, CreditCard, ShieldCheck, Loader2, Lock, X } from 'lucide-react';
-import { fetchData, writeData, auth } from '@/lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { Settings as SettingsIcon, Save, CheckCircle2, Building, MapPin, Hash, FileDigit, Repeat, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { fetchData, writeData } from '@/lib/firebase';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useStore } from '@/store/useStore';
@@ -12,13 +11,6 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
-  
-  // 2-step verification state
-  const [showVerification, setShowVerification] = useState(false);
-  const [verifyOtp, setVerifyOtp] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
-  const [verifyError, setVerifyError] = useState("");
-
   const [formData, setFormData] = useState({
     labName: 'Densum Digital Lab',
     gstin: '',
@@ -26,14 +18,7 @@ export default function SettingsPage() {
     state: 'Maharashtra',
     hsnCode: '9021',
     invoiceSequence: 1,
-    // Composition Scheme fields
-    compositionRate: 1.0, // 1% for manufacturers (0.5% CGST + 0.5% SGST)
-    compositionTurnoverLimit: 15000000, // ₹1.5 Crore
-    // ITR fields
-    panNumber: '',
-    bankName: '',
-    bankAccountNo: '',
-    bankIFSC: '',
+    gstRate: 18.0
   });
 
   const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
@@ -46,7 +31,7 @@ export default function SettingsPage() {
     if (storeSettings && Object.keys(storeSettings).length > 0 && !isStoreLoaded) {
       const { recurring_expenses, ...generalSettings } = storeSettings;
       if (Object.keys(generalSettings).length > 0) {
-        setFormData(prev => ({ ...prev, ...generalSettings } as any));
+        setFormData(generalSettings as any);
       }
       if (recurring_expenses) {
         setRecurringExpenses(Object.values(recurring_expenses));
@@ -54,21 +39,21 @@ export default function SettingsPage() {
       setIsStoreLoaded(true);
       setLoading(false);
     } else if (Object.keys(storeSettings).length === 0) {
-      setLoading(false);
+      // Still waiting for store to populate
+      setLoading(false); // don't block forever if empty
     }
   }, [storeSettings, isStoreLoaded]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numericFields = ['invoiceSequence', 'compositionRate', 'compositionTurnoverLimit'];
     setFormData({ 
       ...formData, 
-      [name]: numericFields.includes(name) ? Number(value) : value 
+      [name]: name === 'invoiceSequence' || name === 'gstRate' ? Number(value) : value 
     });
     setSaved(false);
   };
 
-  const handleActualSave = async () => {
+  const handleSave = async () => {
     setIsSaving(true);
     
     const recObj: any = {};
@@ -85,55 +70,6 @@ export default function SettingsPage() {
       setTimeout(() => setSaved(false), 3000);
     } else {
       toast.error("Failed to save settings");
-    }
-  };
-
-  const handleSave = async () => {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(otp);
-    setShowVerification(true);
-    setVerifyOtp('');
-    setVerifyError('');
-    
-    toast.loading("Sending OTP to your email...", { id: 'otp-toast' });
-
-    try {
-      // Using FormSubmit for frictionless email sending
-      const response = await fetch("https://formsubmit.co/ajax/baleeghhaider04101999@gmail.com", {
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          _subject: "Densum Admin - Security Verification",
-          OTP_Code: otp,
-          Message: "Please use this 6-digit OTP to verify your settings changes. Do not share this with anyone.",
-          _template: "box",
-          _captcha: "false"
-        })
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        toast.success(`OTP sent to baleeghhaider... (Check spam/activation if first time)`, { id: 'otp-toast', duration: 8000 });
-      } else {
-        toast.success(`Security Check: OTP simulated (Service error). Demo OTP: ${otp}`, { id: 'otp-toast', duration: 8000 });
-      }
-    } catch (err) {
-      toast.success(`Security Check: Network error. (Demo OTP: ${otp})`, { id: 'otp-toast', duration: 8000 });
-    }
-  };
-
-  const handleVerifyAndSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    setVerifyError('');
-    
-    if (verifyOtp === generatedOtp) {
-      setShowVerification(false);
-      handleActualSave();
-    } else {
-      setVerifyError("Incorrect OTP. Please try again.");
     }
   };
 
@@ -165,10 +101,9 @@ export default function SettingsPage() {
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Lab Settings</h1>
-        <p className="text-foreground/70">Configure your lab details, GST Composition Scheme, and ITR settings.</p>
+        <p className="text-foreground/70">Configure your lab details, GST, and invoice settings.</p>
       </header>
 
-      {/* General Configuration */}
       <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg">
         <div className="flex items-center gap-3 mb-8 pb-4 border-b border-panel-border/50">
           <SettingsIcon size={24} className="text-accent" />
@@ -212,15 +147,13 @@ export default function SettingsPage() {
 
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-foreground/70 mb-2">
-                <CreditCard size={16} /> PAN Number
+                <Hash size={16} /> Default GST Rate (%)
               </label>
               <input 
-                type="text" name="panNumber"
-                value={formData.panNumber} onChange={handleChange}
-                placeholder="ABCDE1234F"
-                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors uppercase"
+                type="number" name="gstRate"
+                value={formData.gstRate} onChange={handleChange}
+                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
               />
-              <p className="text-xs text-foreground/50 mt-1">Required for ITR filing.</p>
             </div>
           </div>
 
@@ -259,92 +192,13 @@ export default function SettingsPage() {
               value={formData.invoiceSequence} onChange={handleChange}
               className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
             />
-            <p className="text-xs text-foreground/50 mt-2">This will automatically increment when a new Bill of Supply is generated.</p>
-          </div>
-        </div>
-      </div>
-
-      {/* GST Composition Scheme */}
-      <div className="bg-panel rounded-xl border border-green-500/30 p-8 shadow-lg">
-        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-panel-border/50">
-          <ShieldCheck size={24} className="text-green-400" />
-          <div>
-            <h2 className="text-xl font-bold text-white">GST Composition Scheme</h2>
-            <p className="text-xs text-green-400/80 mt-1">Section 10 of CGST Act — Manufacturer category</p>
-          </div>
-        </div>
-
-        <div className="mb-6 p-4 bg-green-500/5 border border-green-500/20 rounded-lg">
-          <p className="text-sm text-foreground/70">
-            Under the Composition Scheme, you pay a <strong className="text-green-400">flat tax on total turnover</strong> instead of charging GST to customers. 
-            Your invoices will be issued as <strong className="text-white">"Bill of Supply"</strong> (not Tax Invoice) and will include the mandatory disclaimer.
-            You <strong className="text-yellow-400">cannot claim Input Tax Credit (ITC)</strong> on purchases.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground/70 mb-2">
-              <Hash size={16} /> Composition Tax Rate (%)
-            </label>
-            <input 
-              type="number" name="compositionRate" step="0.1"
-              value={formData.compositionRate} onChange={handleChange}
-              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
-            />
-            <p className="text-xs text-foreground/50 mt-1">
-              Manufacturers: 1% (0.5% CGST + 0.5% SGST) • Service Providers: 6% (3% CGST + 3% SGST)
-            </p>
-          </div>
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground/70 mb-2">
-              <AlertTriangle size={16} /> Annual Turnover Limit (₹)
-            </label>
-            <input 
-              type="number" name="compositionTurnoverLimit"
-              value={formData.compositionTurnoverLimit} onChange={handleChange}
-              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
-            />
-            <p className="text-xs text-foreground/50 mt-1">
-              ₹1.5 Crore for regular states • ₹75 Lakh for special category states. You&apos;ll be alerted when approaching this limit.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Bank Details for ITR */}
-      <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg">
-        <div className="flex items-center gap-3 mb-8 pb-4 border-b border-panel-border/50">
-          <CreditCard size={24} className="text-accent" />
-          <h2 className="text-xl font-bold text-white">Bank Details (for ITR)</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-2">Bank Name</label>
-            <input type="text" name="bankName" value={formData.bankName} onChange={handleChange}
-              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
-              placeholder="e.g. State Bank of India"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-2">Account Number</label>
-            <input type="text" name="bankAccountNo" value={formData.bankAccountNo} onChange={handleChange}
-              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors"
-              placeholder="e.g. 123456789012"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground/70 mb-2">IFSC Code</label>
-            <input type="text" name="bankIFSC" value={formData.bankIFSC} onChange={handleChange}
-              className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent transition-colors uppercase"
-              placeholder="e.g. SBIN0001234"
-            />
+            <p className="text-xs text-foreground/50 mt-2">This will automatically increment when a new invoice is generated.</p>
           </div>
         </div>
       </div>
 
       {/* Recurring Expenses Section */}
-      <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg">
+      <div className="bg-panel rounded-xl border border-panel-border p-8 shadow-lg mt-8">
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-panel-border/50">
           <div className="flex items-center gap-3">
             <Repeat size={24} className="text-accent" />
@@ -382,12 +236,10 @@ export default function SettingsPage() {
                     className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
                   >
                     <option value="Rent">Rent</option>
-                    <option value="Salary">Salary &amp; Wages</option>
-                    <option value="EMI">EMI / Loan Interest</option>
+                    <option value="Salary">Salary</option>
+                    <option value="EMI">EMI</option>
                     <option value="Software">Software/Subscriptions</option>
-                    <option value="Utilities">Utilities (Power, Water)</option>
-                    <option value="Insurance">Insurance</option>
-                    <option value="Professional Fees">Professional Fees (CA/Legal)</option>
+                    <option value="Utilities">Utilities</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
@@ -488,71 +340,6 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
-
-      {/* 2-Step Verification Modal */}
-      {showVerification && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
-          <div className="w-full max-w-md bg-panel border border-panel-border rounded-2xl shadow-2xl p-6 animate-in zoom-in-95">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent">
-                  <Lock size={20} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Security Verification</h3>
-                  <p className="text-xs text-foreground/60">2-step verification required</p>
-                </div>
-              </div>
-              <button onClick={() => setShowVerification(false)} className="p-2 text-foreground/50 hover:bg-black/20 rounded-lg transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleVerifyAndSave} className="space-y-4">
-              {verifyError && (
-                <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg flex items-center gap-2">
-                  <AlertTriangle size={16} /> {verifyError}
-                </div>
-              )}
-              
-              <div>
-                <label className="block text-sm font-medium text-foreground/70 mb-2 text-center">Enter 6-Digit OTP</label>
-                <div className="relative max-w-[200px] mx-auto">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40" />
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={verifyOtp}
-                    onChange={(e) => setVerifyOtp(e.target.value.replace(/\D/g, ''))}
-                    required
-                    autoFocus
-                    className="w-full bg-black/40 border border-panel-border rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-accent transition-colors tracking-[0.5em] font-mono text-center"
-                    placeholder="••••••"
-                  />
-                </div>
-                <p className="text-xs text-foreground/50 mt-3 text-center">We've sent a 6-digit verification code to baleeghhaider04101999@gmail.com.</p>
-              </div>
-              
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-panel-border/50">
-                <button
-                  type="button"
-                  onClick={() => setShowVerification(false)}
-                  className="px-4 py-2 bg-black/20 text-foreground font-medium rounded-lg hover:bg-black/40 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.3)] flex items-center gap-2"
-                >
-                  <Save size={18} />
-                  Verify & Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

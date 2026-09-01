@@ -217,14 +217,14 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         // Fetch current ledger FIRST to prevent duplicate entry or incorrect PDF balance
         const currentLedger = await fetchData(`ledger/${currentSheet}`) || [];
         
-        const invoiceDescription = `Auto-generated Bill of Supply - ${selectedMonth}`;
+        const invoiceDescription = `Auto-generated Invoice - ${selectedMonth}`;
         const existingTxIndex = currentLedger.findIndex((tx: any) => tx.description === invoiceDescription);
         const isDuplicate = existingTxIndex !== -1;
         
         let prevBalance = Number(docProfile.balance) || 0;
 
         if (isDuplicate) {
-          const wantToRedownload = confirm(`A Bill of Supply for ${selectedMonth} has already been generated for ${currentSheet}. Do you want to re-download a copy?`);
+          const wantToRedownload = confirm(`An invoice for ${selectedMonth} has already been generated for ${currentSheet}. Do you want to re-download a copy?`);
           if (!wantToRedownload) return;
           
           // Re-calculate the balance BEFORE this invoice was generated
@@ -236,7 +236,22 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF with the corrected balance
         const tempDocProfile = { ...docProfile, balance: prevBalance };
-        const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings, selectedMonth);
+        const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings);
+
+        // Send via WhatsApp
+        if (tempDocProfile.phone) {
+          const message = `Hello ${currentSheet}, here is your invoice for ${selectedMonth}. Please find the attached PDF.`;
+          
+          let phone = tempDocProfile.phone;
+          if (!phone.startsWith('+')) phone = '+91' + phone;
+          
+          const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+          const popup = window.open(url, '_blank');
+          
+          if (!popup) {
+            toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site to send the invoice automatically.");
+          }
+        }
 
         // Stop here if it was already in the ledger
         if (isDuplicate) return;
@@ -260,7 +275,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         await writeData('settings/invoiceSequence', nextSeq);
         await refreshSettings();
         
-        toast.success(`Bill of Supply generated and ₹${totalInclusive.toFixed(2)} added to ${currentSheet}'s ledger!`);
+        toast.success(`Invoice generated and ₹${totalInclusive.toFixed(2)} added to ${currentSheet}'s ledger!`);
       }
     }
   };
@@ -306,7 +321,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         const currentLedger = await fetchData(`ledger/${sheet}`) || [];
         
         // Prevent duplicate bill
-        const invoiceDescription = `Auto-generated Bill of Supply - ${selectedMonth}`;
+        const invoiceDescription = `Auto-generated Invoice - ${selectedMonth}`;
         if (currentLedger.some((tx: any) => tx.description === invoiceDescription)) {
           skippedCount++;
           continue;
@@ -314,7 +329,23 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF
         const currentSettings = { ...settings, invoiceSequence: localInvoiceSequence };
-        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings, selectedMonth);
+        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings);
+
+        // Send via WhatsApp
+        if (docProfile.phone) {
+          const message = `Hello ${sheet}, here is your invoice for ${selectedMonth}. Please find the attached PDF.`;
+          
+          let phone = docProfile.phone;
+          if (!phone.startsWith('+')) phone = '+91' + phone;
+          
+          const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+          const popup = window.open(url, '_blank');
+          
+          if (!popup) {
+            toast.error("Popup blocker prevented opening WhatsApp. Please allow popups for this site, then try again.");
+            break; // Stop the loop if popups are blocked
+          }
+        }
 
         const newTransaction = {
           id: generateId(),
@@ -344,7 +375,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     await refreshDoctors();
     await refreshLedger();
     if (processedCount > 0 || skippedCount > 0) {
-      toast.success(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!${skippedCount > 0 ? ` Skipped ${skippedCount} doctors who already had Bills of Supply generated for ${selectedMonth}.` : ''}`);
+      toast.success(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!${skippedCount > 0 ? ` Skipped ${skippedCount} doctors who already had bills generated for ${selectedMonth}.` : ''}`);
     } else {
       toast.info("No valid billable data found to generate.");
     }
@@ -354,16 +385,15 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     if (!confirm("Are you sure you want to clear the ledger for ALL doctors? This will reset all balances to 0 and erase all transaction history. This cannot be undone.")) return;
     setIsSyncing(true);
     try {
-      // 1. Clear the entire ledger root node to ensure all transaction history is gone
-      await writeData('ledger', null);
-      
-      // 2. Reset all doctor balances to 0
       let count = 0;
       for (const docName of Object.keys(doctorsData)) {
+        await writeData(`ledger/${docName}`, null);
         await writeData(`doctors/${docName}/balance`, 0);
         count++;
       }
-      toast.success(`Successfully cleared all ledgers and reset balances for ${count} doctors.`);
+      await refreshDoctors();
+      await refreshLedger();
+      toast.success(`Successfully cleared ledgers and reset balances for ${count} doctors.`);
     } catch (err: any) {
       toast.error("Failed to clear ledgers: " + (err.message || "Unknown error"));
     } finally {
@@ -507,17 +537,27 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-foreground/60 uppercase bg-[#08101a] shadow-sm sticky top-0 z-10">
                 <tr>
-                  {Object.keys(filteredData[0]).map(k => (
-                    <th key={k} className="px-4 py-3 whitespace-nowrap">{k}</th>
-                  ))}
+                  {(() => {
+                    const allKeys = Object.keys(filteredData[0]);
+                    const preferredOrder = ['Patient Name', 'Received Date', 'Delivered Date', 'Tooth No', 'Work material', 'Units', 'Status', 'Rate', 'Total'];
+                    const finalOrder = [...preferredOrder, ...allKeys.filter(k => !preferredOrder.includes(k))];
+                    return finalOrder.map(k => (
+                      <th key={k} className="px-4 py-3 whitespace-nowrap">{k}</th>
+                    ));
+                  })()}
                 </tr>
               </thead>
               <tbody>
                 {filteredData.map((row: any, i: number) => (
                   <tr key={i} className="border-b border-panel-border/50 hover:bg-white/5 transition-colors">
-                    {Object.values(row).map((v: any, j: number) => (
-                      <td key={j} className="px-4 py-3 whitespace-nowrap">{String(v)}</td>
-                    ))}
+                    {(() => {
+                      const allKeys = Object.keys(filteredData[0]);
+                      const preferredOrder = ['Patient Name', 'Received Date', 'Delivered Date', 'Tooth No', 'Work material', 'Units', 'Status', 'Rate', 'Total'];
+                      const finalOrder = [...preferredOrder, ...allKeys.filter(k => !preferredOrder.includes(k))];
+                      return finalOrder.map((k: string, j: number) => (
+                        <td key={j} className="px-4 py-3 whitespace-nowrap">{String(row[k] ?? '')}</td>
+                      ));
+                    })()}
                   </tr>
                 ))}
               </tbody>

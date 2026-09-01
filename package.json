@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "ag-grid-community": "^36.1.0",
+    "ag-grid-react": "^36.1.0",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "firebase": "^12.18.0",

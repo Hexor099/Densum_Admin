@@ -187,7 +187,7 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
         try {
           const imgRef = storageRef(storage, `bills/${billId}`);
           const uploadPromise = uploadString(imgRef, fullDataUrl, 'data_url');
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 60000));
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage upload timeout')), 10000));
           
           await Promise.race([uploadPromise, timeoutPromise]);
           imageUrl = await getDownloadURL(imgRef);
@@ -373,16 +373,6 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
             <div className="mt-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-start gap-3 animate-in fade-in zoom-in-95">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
               <p className="text-sm break-words flex-1">{error}</p>
-            </div>
-          )}
-
-          {parsedBill && (
-            <div className="mt-6 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400/90 flex items-start gap-3 animate-in fade-in zoom-in-95">
-              <AlertCircle size={20} className="shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-bold text-yellow-400 mb-1">Composition Scheme Note:</p>
-                <p>As a composition dealer, you <strong>cannot claim Input Tax Credit (ITC)</strong> on this purchase. The total amount including GST should be booked as a business expense.</p>
-              </div>
             </div>
           )}
         </div>

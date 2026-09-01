@@ -7,12 +7,11 @@ import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { useStore } from '@/store/useStore';
-import { ShieldCheck } from 'lucide-react';
 
 const COLORS = ['#00a8e8', '#4ade80', '#f472b6', '#fbbf24', '#a78bfa', '#94a3b8', '#38bdf8'];
 
 export default function ExpensesPage() {
-  const { expenses, ledger: rawLedger, settings, isInitialized, initializeStore, refreshExpenses } = useStore();
+  const { expenses, ledger: rawLedger, isInitialized, initializeStore, refreshExpenses } = useStore();
 
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
@@ -40,9 +39,9 @@ export default function ExpensesPage() {
       txs.forEach((tx: any) => {
         const txDate = tx.date;
         if (txDate >= dateFrom && txDate <= dateTo) {
-          // Cash-Basis Accounting: Revenue = actual cash/payments received from doctors
-          if (tx.type === 'Payment') {
-            rev += Math.abs(tx.amount);
+          // Revenue = invoice/charge amounts (not payments — those are cash collection, not revenue)
+          if (tx.type === 'Invoice Generated' || tx.type === 'Invoice' || tx.type === 'Charge' || tx.type === 'Bill' || tx.type === 'Debit Note') {
+            rev += tx.amount > 0 ? tx.amount : Math.abs(tx.amount);
           }
         }
       });
@@ -55,13 +54,7 @@ export default function ExpensesPage() {
   }, [expenses, rawLedger, dateFrom, dateTo]);
 
   const totalExpenses = filteredExpenses.reduce((acc, curr) => acc + Number(curr.amount), 0);
-
-  // Composition GST Liability = compositionRate% of revenue (paid by business, not charged to customers)
-  const compositionRate = Number(settings?.compositionRate) || 1.0;
-  const compositionGSTLiability = taxableRevenue * (compositionRate / 100);
-
-  const totalExpensesWithGST = totalExpenses + compositionGSTLiability;
-  const netProfit = taxableRevenue - totalExpensesWithGST;
+  const netProfit = taxableRevenue - totalExpenses;
   const profitMargin = taxableRevenue > 0 ? ((netProfit / taxableRevenue) * 100).toFixed(1) : "0.0";
 
   const chartData = useMemo(() => {
@@ -266,10 +259,10 @@ export default function ExpensesPage() {
       </header>
 
       {/* P&L Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-foreground/70 font-semibold tracking-wide uppercase text-sm">Revenue (Ledger)</h3>
+            <h3 className="text-foreground/70 font-semibold tracking-wide uppercase text-sm">Taxable Revenue (Ledger)</h3>
             <div className="p-2 bg-accent/10 rounded-lg"><TrendingUp size={20} className="text-accent" /></div>
           </div>
           <div className="text-3xl font-bold text-white">₹{taxableRevenue.toLocaleString()}</div>
@@ -281,16 +274,6 @@ export default function ExpensesPage() {
             <div className="p-2 bg-red-500/10 rounded-lg"><TrendingDown size={20} className="text-red-400" /></div>
           </div>
           <div className="text-3xl font-bold text-red-400">₹{totalExpenses.toLocaleString()}</div>
-          <div className="text-xs text-foreground/50 mt-1">+ ₹{compositionGSTLiability.toLocaleString(undefined, {maximumFractionDigits: 0})} GST liability</div>
-        </div>
-
-        <div className="bg-panel rounded-xl border border-green-500/30 p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-foreground/70 font-semibold tracking-wide uppercase text-sm">GST Liability ({compositionRate}%)</h3>
-            <div className="p-2 bg-green-500/10 rounded-lg"><ShieldCheck size={20} className="text-green-400" /></div>
-          </div>
-          <div className="text-3xl font-bold text-green-400">₹{compositionGSTLiability.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
-          <div className="text-xs text-foreground/50 mt-1">Composition scheme — pay from own funds</div>
         </div>
 
         <div className={`bg-panel rounded-xl border ${netProfit >= 0 ? 'border-green-500/50' : 'border-red-500/50'} p-6 shadow-lg relative overflow-hidden`}>
@@ -328,18 +311,9 @@ export default function ExpensesPage() {
                 >
                   <option value="">Select Category</option>
                   <option value="Materials">Materials & Supplies</option>
-                  <option value="Inventory Purchase">Inventory Purchase</option>
                   <option value="Salary">Salaries & Wages</option>
-                  <option value="Rent">Rent</option>
-                  <option value="Utilities">Utilities (Power, Water)</option>
+                  <option value="Utilities">Utilities (Rent, Power)</option>
                   <option value="Maintenance">Maintenance & Repairs</option>
-                  <option value="Depreciation">Depreciation</option>
-                  <option value="Insurance">Insurance</option>
-                  <option value="Professional Fees">Professional Fees (CA/Legal)</option>
-                  <option value="Communication">Communication (Phone/Internet)</option>
-                  <option value="Bank Charges">Bank Charges & Interest</option>
-                  <option value="Rates & Taxes">Rates & Taxes</option>
-                  <option value="Office Expenses">Office Expenses</option>
                   <option value="Marketing">Marketing</option>
                   <option value="Other">Other</option>
                 </select>

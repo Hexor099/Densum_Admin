@@ -24,16 +24,9 @@ export async function syncExcelData(formData: FormData) {
       const worksheet = workbook.Sheets[rawSheetName];
       
       if (worksheet['!ref']) {
-        const range = xlsx.utils.decode_range(worksheet['!ref']);
-        // Limit reading to column G (index 6)
-        if (range.e.c > 6) {
-          range.e.c = 6;
-        }
-        worksheet['!ref'] = xlsx.utils.encode_range(range);
-
-        // Skip column B (DELIVERED DATE) and column F (FITTED) by deleting their cells
+        // Skip column F (FITTED) by deleting its cells
         Object.keys(worksheet).forEach(key => {
-          if (key.match(/^[BF]\d+$/)) {
+          if (key.match(/^F\d+$/)) {
             delete worksheet[key];
           }
         });
@@ -42,13 +35,43 @@ export async function syncExcelData(formData: FormData) {
       const rawJson = xlsx.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'dd-mm-yyyy' });
       
       const json = rawJson.map((row: any) => {
-        const newRow: any = {};
+        const newRow: any = {
+          'Patient Name': '',
+          'Received Date': '',
+          'Delivered Date': '',
+          'Tooth No': '',
+          'Work material': '',
+          'Units': '',
+          'Status': ''
+        };
         for (const key in row) {
-          const safeKey = key.replace(/\./g, '').replace(/[#$\[\]]/g, '');
+          if (key.startsWith('__EMPTY')) continue;
+          
+          let safeKey = key.replace(/\./g, '').replace(/[#$\[\]]/g, '').trim();
+          
+          // Normalize known headers to exact casing required by the app
+          const upperKey = safeKey.toUpperCase();
+          if (upperKey === 'DELIVERED DATE' || upperKey === 'DELIVERY DATE' || upperKey === 'DELIVER DATE') safeKey = 'Delivered Date';
+          else if (upperKey === 'RECEIVED DATE' || upperKey === 'RECEIVE DATE' || upperKey === 'DATE') safeKey = 'Received Date';
+          else if (upperKey === 'PATIENT NAME' || upperKey === 'PATIENT') safeKey = 'Patient Name';
+          else if (upperKey === 'TOOTH NO' || upperKey === 'TOOTH NO.' || upperKey === 'TOOTH') safeKey = 'Tooth No';
+          else if (upperKey === 'WORK MATERIAL') safeKey = 'Work material';
+          else if (upperKey === 'UNITS') safeKey = 'Units';
+          
           newRow[safeKey] = row[key];
         }
+        
+        // Auto-populate missing defaults
+        if (!newRow['Delivered Date']) {
+          newRow['Delivered Date'] = 'Not Delivered';
+          if (!newRow['Status']) newRow['Status'] = 'Active';
+        } else {
+          // If there is a Delivered Date from Excel, auto-mark as Delivered
+          if (!newRow['Status']) newRow['Status'] = 'Delivered';
+        }
+        
         return newRow;
-      });
+      }).filter((row: any) => row['Patient Name'] && String(row['Patient Name']).trim() !== '');
       
       sheetsData[sheetName] = json;
     }

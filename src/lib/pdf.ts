@@ -46,7 +46,7 @@ function parsePalmerNotation(teethStr: string) {
   };
 }
 
-export async function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any, monthName?: string) {
+export async function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any) {
   const doc = new jsPDF();
   
   const labName = settings.labName || 'Densum Digital Lab';
@@ -54,9 +54,14 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
   const labGSTIN = settings.gstin || '';
   const labAddress = settings.address || '';
   const hsnCode = settings.hsnCode || '9021';
+  const gstRate = Number(settings.gstRate) || 18.0;
 
   const docAddress = doctorProfile.address || 'Address not provided';
+  const docState = doctorProfile.state || '';
+  const docGSTIN = doctorProfile.gstin || 'Unregistered';
   const docPhone = doctorProfile.phone || '';
+
+  const isInterstate = docState && labState.toLowerCase() !== docState.toLowerCase();
 
   // Header
   try {
@@ -78,25 +83,22 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
     doc.text(labName, 14, 20);
   }
   
-  // BILL OF SUPPLY (not Tax Invoice — mandatory under Composition Scheme)
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'bold');
-  doc.text('BILL OF SUPPLY', 14, 36);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text('TAX INVOICE', 14, 36);
 
-  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(50);
   doc.text(`${labAddress}\nState: ${labState}\nGSTIN: ${labGSTIN}`, 14, 43);
   
-  const invNo = `BOS-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${settings.invoiceSequence || 1}`;
-  doc.text(`Bill No: ${invNo}\nDate: ${new Date().toLocaleDateString()}`, 140, 43);
+  const invNo = `INV-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${settings.invoiceSequence || 1}`;
+  doc.text(`Invoice #: ${invNo}\nDate: ${new Date().toLocaleDateString()}`, 140, 43);
 
-  doc.text(`Billed To:\n${doctorName}\n${docAddress}\nPhone: ${docPhone}`, 14, 63);
+  doc.text(`Billed To:\n${doctorName}\n${docAddress}\nState: ${docState} | GSTIN: ${docGSTIN}\nPhone: ${docPhone}`, 14, 63);
 
   if (!data || data.length === 0) return;
   
-  let totalAmount = 0;
+  let totalInclusive = 0;
   
   // Prepare table data
   const headers = [
@@ -107,12 +109,12 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
     { content: 'Teeth #', colSpan: 2, styles: { halign: 'center' as const } },
     { content: 'Units', rowSpan: 1 },
     { content: 'Rate /unit', rowSpan: 1 },
-    { content: 'Amount', rowSpan: 1 }
+    { content: 'Total Amount', rowSpan: 1 }
   ];
 
   const rows = data.map((row, idx) => {
     const total = Number(row.Total) || 0;
-    totalAmount += total;
+    totalInclusive += total;
 
     const toothParsed = parsePalmerNotation(getVal(row, ['tooth no', 'tooth no.']));
 
@@ -149,7 +151,7 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
         const rawRow = data.row.raw as any[];
         const hasFDI = rawRow[9];
         if (hasFDI && (data.column.index === 4 || data.column.index === 5)) {
-          doc.setDrawColor(0, 0, 0);
+          doc.setDrawColor(0, 0, 0); // darker line for the inner cross
           doc.setLineWidth(0.5);
           const midY = data.cell.y + (data.cell.height / 2);
           doc.line(data.cell.x, midY, data.cell.x + data.cell.width, midY);
@@ -160,17 +162,36 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
 
   const finalY = (doc as any).lastAutoTable.finalY + 10;
   
-  // Under Composition Scheme: NO GST breakup. Total is the final amount.
-  const prevBalance = Number(doctorProfile.balance) || 0;
-  const netAmount = totalAmount + prevBalance;
+  const taxableValue = totalInclusive / (1 + (gstRate / 100));
+  const totalTax = totalInclusive - taxableValue;
+  
+  let igst = 0, cgst = 0, sgst = 0;
+  if (isInterstate) {
+    igst = totalTax;
+  } else {
+    cgst = totalTax / 2;
+    sgst = totalTax / 2;
+  }
 
-  // Summary Table (simplified — no tax breakup)
+  const prevBalance = Number(doctorProfile.balance) || 0;
+  const netAmount = totalInclusive + prevBalance;
+
+  // Summary Table
   const summaryHeaders = ['Description', 'Amount (INR)'];
   const summaryRows = [
-    ['Bill Total:', totalAmount.toFixed(2)],
-    ['Previous Balance:', prevBalance.toFixed(2)],
-    ['Grand Total Due:', netAmount.toFixed(2)]
+    ['Taxable Value (Base):', taxableValue.toFixed(2)]
   ];
+
+  if (isInterstate) {
+    summaryRows.push([`IGST (${gstRate}%):`, igst.toFixed(2)]);
+  } else {
+    summaryRows.push([`CGST (${gstRate/2}%):`, cgst.toFixed(2)]);
+    summaryRows.push([`SGST (${gstRate/2}%):`, sgst.toFixed(2)]);
+  }
+
+  summaryRows.push(['Invoice Total:', totalInclusive.toFixed(2)]);
+  summaryRows.push(['Previous Balance:', prevBalance.toFixed(2)]);
+  summaryRows.push(['Grand Total Due:', netAmount.toFixed(2)]);
 
   autoTable(doc, {
     head: [summaryHeaders],
@@ -186,32 +207,10 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
     columnStyles: { 1: { halign: 'right' } }
   });
 
-  const summaryFinalY = (doc as any).lastAutoTable.finalY + 8;
-
-  // HSN Code
   doc.setFontSize(9);
   doc.text(`HSN Code: ${hsnCode}`, 14, finalY + 10);
-
-  // Mandatory Composition Scheme Disclaimer (required by Rule 46(1) of CGST Rules)
-  doc.setFontSize(8);
-  doc.setTextColor(150, 0, 0);
-  doc.setFont('helvetica', 'bold');
-  const disclaimerY = Math.max(summaryFinalY + 5, finalY + 20);
-  doc.text(
-    '"Composition taxable person, not eligible to collect tax on supplies"',
-    14,
-    disclaimerY,
-    { maxWidth: 180 }
-  );
-
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100);
-  doc.setFontSize(7);
-  doc.text('This is a Bill of Supply issued under GST Composition Scheme (Section 10, CGST Act 2017).', 14, disclaimerY + 6);
   
-  const monthSuffix = monthName ? `_${monthName.replace(/[^a-z0-9]/gi, '_')}` : '';
-  doc.save(`Bill_of_Supply_${doctorName.replace(/[^a-z0-9]/gi, '_')}${monthSuffix}.pdf`);
+  doc.save(`Tax_Invoice_${doctorName.replace(/[^a-z0-9]/gi, '_')}.pdf`);
   
   return doc.output('datauristring');
 }
-
