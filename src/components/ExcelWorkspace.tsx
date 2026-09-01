@@ -21,7 +21,7 @@ export function ExcelWorkspace() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Inline editing state
-  const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
+  const [editingRow, setEditingRow] = useState<any>(null);
   const [editFormData, setEditFormData] = useState<any>({});
 
   // Load Data from Firebase
@@ -85,7 +85,7 @@ export function ExcelWorkspace() {
   };
 
   const handleTabSwitch = (id: string) => {
-    if (editingRowIndex !== null) {
+    if (editingRow !== null) {
       toast.error("Please save or cancel your edits before switching sheets.");
       return;
     }
@@ -143,7 +143,7 @@ export function ExcelWorkspace() {
   };
 
   const handleSaveToCloud = async () => {
-    if (editingRowIndex !== null) {
+    if (editingRow !== null) {
       toast.error("Please save or cancel your edits before syncing.");
       return;
     }
@@ -187,36 +187,38 @@ export function ExcelWorkspace() {
     }
   };
 
-  const startEditing = (index: number, row: any) => {
-    setEditingRowIndex(index);
+  const startEditing = (row: any) => {
+    setEditingRow(row);
     setEditFormData({ ...row });
   };
 
   const cancelEditing = () => {
-    setEditingRowIndex(null);
+    setEditingRow(null);
     setEditFormData({});
   };
 
-  const saveEditing = (index: number) => {
+  const saveEditing = () => {
     setSheets(prev => prev.map(sheet => {
       if (sheet.id === activeSheetId) {
         const newData = [...sheet.rowData];
-        newData[index] = editFormData;
+        const index = newData.indexOf(editingRow);
+        if (index !== -1) {
+          newData[index] = editFormData;
+        }
         return { ...sheet, rowData: newData };
       }
       return sheet;
     }));
-    setEditingRowIndex(null);
+    setEditingRow(null);
     setEditFormData({});
     toast.success("Entry updated locally. Remember to Save to Cloud.");
   };
 
-  const deleteRow = (index: number) => {
+  const deleteRow = (rowToDelete: any) => {
     if (!confirm("Are you sure you want to delete this entry?")) return;
     setSheets(prev => prev.map(sheet => {
       if (sheet.id === activeSheetId) {
-        const newData = [...sheet.rowData];
-        newData.splice(index, 1);
+        const newData = sheet.rowData.filter(r => r !== rowToDelete);
         return { ...sheet, rowData: newData };
       }
       return sheet;
@@ -321,7 +323,7 @@ export function ExcelWorkspace() {
                   </td>
                 </tr>
               ) : displayRows.map((row, i) => {
-                const isEditing = editingRowIndex === i;
+                const isEditing = editingRow === row;
                 return (
                   <tr key={i} className="border-b border-panel-border/50 hover:bg-white/5 transition-colors group">
                     <td className="px-4 py-3 whitespace-nowrap font-medium text-white">
@@ -395,7 +397,7 @@ export function ExcelWorkspace() {
                     <td className="px-4 py-3 whitespace-nowrap text-right">
                       {isEditing ? (
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => saveEditing(i)} className="p-1.5 text-green-400 hover:text-green-300 rounded hover:bg-green-400/10" title="Save">
+                          <button onClick={saveEditing} className="p-1.5 text-green-400 hover:text-green-300 rounded hover:bg-green-400/10" title="Save">
                             <Save size={16} />
                           </button>
                           <button onClick={cancelEditing} className="p-1.5 text-foreground/50 hover:text-foreground/80 rounded hover:bg-white/5" title="Cancel">
@@ -404,10 +406,10 @@ export function ExcelWorkspace() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEditing(i, row)} className="p-1.5 text-blue-400 hover:text-blue-300 rounded hover:bg-blue-400/10" title="Edit Row">
+                          <button onClick={() => startEditing(row)} className="p-1.5 text-blue-400 hover:text-blue-300 rounded hover:bg-blue-400/10" title="Edit Row">
                             <Edit2 size={16} />
                           </button>
-                          <button onClick={() => deleteRow(i)} className="p-1.5 text-red-400 hover:text-red-300 rounded hover:bg-red-400/10" title="Delete Row">
+                          <button onClick={() => deleteRow(row)} className="p-1.5 text-red-400 hover:text-red-300 rounded hover:bg-red-400/10" title="Delete Row">
                             <Trash2 size={16} />
                           </button>
                         </div>
