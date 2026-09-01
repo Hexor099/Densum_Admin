@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import { CloudUpload, RefreshCw, Plus, FileSpreadsheet, PlusCircle, Edit2, Save, X, Trash2 } from "lucide-react";
+import { CloudUpload, RefreshCw, Plus, FileSpreadsheet, PlusCircle, Edit2, Save, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { fetchData, writeData } from "@/lib/firebase";
 import { AddEntryModal } from "./AddEntryModal";
@@ -23,6 +23,7 @@ export function ExcelWorkspace() {
   // Inline editing state
   const [editingRow, setEditingRow] = useState<any>(null);
   const [editFormData, setEditFormData] = useState<any>({});
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'Received Date', direction: 'desc' });
 
   // Load Data from Firebase
   useEffect(() => {
@@ -227,14 +228,54 @@ export function ExcelWorkspace() {
 
   if (isInitializing) return null;
 
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const renderSortHeader = (label: string, key: string) => {
+    return (
+      <th 
+        className="px-4 py-3 whitespace-nowrap cursor-pointer hover:bg-white/5 transition-colors group select-none"
+        onClick={() => handleSort(key)}
+      >
+        <div className="flex items-center gap-1">
+          {label}
+          <span className="text-foreground/30 group-hover:text-foreground/70 transition-colors">
+             {sortConfig?.key === key ? (
+               sortConfig.direction === 'asc' ? <ArrowUp size={14} className="text-accent" /> : <ArrowDown size={14} className="text-accent" />
+             ) : (
+               <ArrowUpDown size={14} />
+             )}
+          </span>
+        </div>
+      </th>
+    );
+  };
+
   const activeSheet = sheets.find(s => s.id === activeSheetId);
-  // Only display rows that are not entirely empty, and sort by Received Date descending
+  // Only display rows that are not entirely empty, and sort according to sortConfig
   const displayRows = activeSheet?.rowData
     .filter(row => row && Object.values(row).some(v => v !== null && v !== undefined && v !== ""))
     .sort((a, b) => {
-      const dateA = parseDateString(a['Received Date'] || a['Date'] || '').getTime();
-      const dateB = parseDateString(b['Received Date'] || b['Date'] || '').getTime();
-      return dateB - dateA; // Descending order
+      if (!sortConfig) return 0;
+      let valA = a[sortConfig.key] || '';
+      let valB = b[sortConfig.key] || '';
+      
+      if (sortConfig.key.includes('Date')) {
+        valA = parseDateString(valA).getTime();
+        valB = parseDateString(valB).getTime();
+      } else {
+        valA = String(valA).toLowerCase();
+        valB = String(valB).toLowerCase();
+      }
+      
+      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
     }) || [];
 
   return (
@@ -306,10 +347,10 @@ export function ExcelWorkspace() {
             <thead className="text-xs text-foreground/60 uppercase bg-[#08101a] shadow-sm sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 whitespace-nowrap">Patient Name</th>
-                <th className="px-4 py-3 whitespace-nowrap">Received Date</th>
-                <th className="px-4 py-3 whitespace-nowrap">Delivered Date</th>
+                {renderSortHeader('Received Date', 'Received Date')}
+                {renderSortHeader('Delivered Date', 'Delivered Date')}
                 <th className="px-4 py-3 whitespace-nowrap">Tooth No</th>
-                <th className="px-4 py-3 whitespace-nowrap">Work Material</th>
+                {renderSortHeader('Work Material', 'Work material')}
                 <th className="px-4 py-3 whitespace-nowrap">Units</th>
                 <th className="px-4 py-3 whitespace-nowrap">Status</th>
                 <th className="px-4 py-3 whitespace-nowrap text-right">Actions</th>
