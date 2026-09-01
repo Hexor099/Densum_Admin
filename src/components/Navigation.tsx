@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search, LogOut, ShieldCheck, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchData } from '@/lib/firebase';
 import { useStore } from '@/store/useStore';
@@ -18,6 +18,8 @@ const navItems = [
   { name: 'Suppliers', href: '/suppliers', icon: Users },
   { name: 'Purchases', href: '/purchases', icon: ReceiptIndianRupee },
   { name: 'Expenses', href: '/expenses', icon: ReceiptIndianRupee },
+  { name: 'GST Returns', href: '/gst-returns', icon: ShieldCheck },
+  { name: 'Financials & ITR', href: '/financial-statements', icon: Scale },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
