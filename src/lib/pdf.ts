@@ -1,50 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { getVal } from './utils';
-
-function parsePalmerNotation(teethStr: string) {
-  if (!teethStr) return { left: '-', right: '', hasFDI: false };
-  
-  const q1: string[] = [], q2: string[] = [], q3: string[] = [], q4: string[] = [];
-  const matches = String(teethStr).match(/\d+/g) || [];
-  
-  let hasFDI = false;
-  
-  matches.forEach(t => {
-    if (t.length === 2) {
-      const quad = t[0];
-      const tooth = t[1];
-      if (tooth >= '1' && tooth <= '8' && quad >= '1' && quad <= '4') {
-        hasFDI = true;
-        if (quad === '1' && !q1.includes(tooth)) q1.push(tooth);
-        else if (quad === '2' && !q2.includes(tooth)) q2.push(tooth);
-        else if (quad === '3' && !q3.includes(tooth)) q3.push(tooth);
-        else if (quad === '4' && !q4.includes(tooth)) q4.push(tooth);
-      }
-    }
-  });
-
-  if (!hasFDI) {
-    return { left: String(teethStr), right: '', hasFDI: false };
-  }
-
-  q1.sort((a, b) => b.localeCompare(a));
-  q4.sort((a, b) => b.localeCompare(a));
-  
-  q2.sort((a, b) => a.localeCompare(b));
-  q3.sort((a, b) => a.localeCompare(b));
-
-  const topL = q1.length ? q1.join('') : ' ';
-  const botL = q4.length ? q4.join('') : ' ';
-  const topR = q2.length ? q2.join('') : ' ';
-  const botR = q3.length ? q3.join('') : ' ';
-
-  return {
-    left: `${topL}\n${botL}`,
-    right: `${topR}\n${botR}`,
-    hasFDI: true
-  };
-}
+import { getVal, parsePalmerNotation } from './utils';
 
 export async function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any, monthName?: string) {
   const doc = new jsPDF();

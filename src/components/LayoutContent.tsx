@@ -48,7 +48,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         </>
       )}
-      <main className={isLoginPage ? "w-full min-h-screen" : "flex-1 md:ml-64 p-4 md:p-8 min-h-screen pt-20 md:pt-8"}>
+      <main className={isLoginPage ? "w-full min-h-screen" : "flex-1 min-w-0 w-full md:ml-64 p-4 md:p-8 min-h-screen pt-20 md:pt-8 overflow-x-hidden"}>
         {children}
       </main>
     </>

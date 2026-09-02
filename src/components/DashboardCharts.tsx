@@ -178,13 +178,13 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
   }
 
   return (
-    <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[450px] flex flex-col">
+    <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[450px] flex flex-col w-full min-w-0">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <h2 className="text-xl font-bold text-white">Revenue Analytics</h2>
         
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <select 
-            className="bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+            className="bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent flex-1 md:flex-none max-w-full"
             value={selectedDoc}
             onChange={(e) => setSelectedDoc(e.target.value)}
           >
@@ -193,18 +193,17 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
           </select>
           
           <select 
-            className="bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent"
+            className="bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent flex-1 md:flex-none max-w-full"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           >
             <option value="">All Months</option>
             {months.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
-
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 min-w-0 relative w-full overflow-hidden">
         {chartData.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-foreground/50 text-sm">
             No data available for the selected filters.

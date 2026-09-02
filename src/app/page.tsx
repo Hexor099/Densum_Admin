@@ -202,8 +202,8 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
+        <div className="lg:col-span-2 min-w-0 w-full">
           <DashboardCharts data={dashboardData} />
         </div>
         <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">

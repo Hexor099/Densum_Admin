@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { fetchData, writeData } from "@/lib/firebase";
 import { AddEntryModal } from "./AddEntryModal";
 import { formatDateForDisplay, parseDateString } from "@/lib/utils";
+import { PalmerCross } from "./PalmerCross";
 
 type DoctorSheet = {
   id: string;
@@ -279,7 +280,7 @@ export function ExcelWorkspace() {
     }) || [];
 
   return (
-    <div className="flex flex-col h-full bg-background relative w-full overflow-hidden">
+    <div className="flex flex-col h-full bg-background relative w-full min-w-0 overflow-hidden">
       
       {/* Top Toolbar / Tab Bar */}
       <div className="flex items-center justify-between p-3 bg-black/40 border-b border-panel-border shrink-0 z-10 w-full overflow-x-auto custom-scrollbar">
@@ -347,10 +348,10 @@ export function ExcelWorkspace() {
             <thead className="text-xs text-foreground/60 uppercase bg-[#08101a] shadow-sm sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 whitespace-nowrap">Patient Name</th>
-                {renderSortHeader('Received Date', 'Received Date')}
-                {renderSortHeader('Delivered Date', 'Delivered Date')}
-                <th className="px-4 py-3 whitespace-nowrap">Tooth No</th>
-                {renderSortHeader('Work Material', 'Work material')}
+                <th className="px-4 py-3 whitespace-nowrap">Received Date</th>
+                <th className="px-4 py-3 whitespace-nowrap hidden md:table-cell">Delivered Date</th>
+                <th className="px-4 py-3 whitespace-nowrap hidden md:table-cell">Tooth No</th>
+                <th className="px-4 py-3 whitespace-nowrap">Work Material</th>
                 <th className="px-4 py-3 whitespace-nowrap">Units</th>
                 <th className="px-4 py-3 whitespace-nowrap">Status</th>
                 <th className="px-4 py-3 whitespace-nowrap text-right">Actions</th>
@@ -374,10 +375,10 @@ export function ExcelWorkspace() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
-                        <input type="date" value={formatDateForInput(editFormData['Received Date'])} onChange={(e) => setEditFormData({...editFormData, 'Received Date': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full" />
+                        <input type="date" value={formatDateForInput(editFormData['Received Date'])} onChange={(e) => setEditFormData({...editFormData, 'Received Date': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full max-w-[140px]" />
                       ) : formatDateForDisplay(row['Received Date'])}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
                       {isEditing ? (
                         <input 
                           type="date" 
@@ -399,10 +400,10 @@ export function ExcelWorkspace() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
                       {isEditing ? (
                         <input type="text" value={editFormData['Tooth No'] || ''} onChange={(e) => setEditFormData({...editFormData, 'Tooth No': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full max-w-[120px]" />
-                      ) : row['Tooth No']}
+                      ) : <PalmerCross teethStr={String(row['Tooth No'] || '')} />}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (

@@ -18,7 +18,7 @@ const ExcelWorkspace = dynamic(
 
 export default function WorkspacePage() {
   return (
-    <div className="max-w-7xl mx-auto space-y-6 flex flex-col h-[calc(100vh-6rem)]">
+    <div className="max-w-7xl mx-auto space-y-6 flex flex-col h-[calc(100vh-6rem)] w-full min-w-0">
       <header className="mb-2 shrink-0">
         <h1 className="text-3xl font-bold text-white mb-2">Live Workspace</h1>
         <p className="text-foreground/70">
@@ -26,7 +26,7 @@ export default function WorkspacePage() {
         </p>
       </header>
 
-      <div className="flex-1 bg-panel rounded-xl border border-panel-border shadow-lg overflow-hidden flex flex-col relative">
+      <div className="flex-1 bg-panel rounded-xl border border-panel-border shadow-lg overflow-hidden flex flex-col relative min-w-0 w-full">
         <ExcelWorkspace />
       </div>
     </div>

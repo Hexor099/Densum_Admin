@@ -8,6 +8,7 @@ import { syncExcelData } from '@/app/actions/excel';
 import { fetchData, writeData, atomicIncrement, appendToList } from '@/lib/firebase';
 import { getVal, generateId, parseDateString, formatDateForDisplay } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
+import { PalmerCross } from './PalmerCross';
 
 export interface ExcelUploaderProps {
   onDataProcessed?: (data: Record<string, any[]>) => void;
@@ -22,6 +23,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const { doctors: doctorsData, settings, refreshDoctors, refreshSettings, refreshLedger } = useStore();
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [searchMaterial, setSearchMaterial] = useState<string>('');
   
   useEffect(() => {
     async function loadCloudData() {
@@ -191,16 +193,33 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   // Sort months properly (basic string sort or date sort)
   availableMonths.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-  // Filter and sort data based on selected month
+  // Filter and sort data based on selected month and material
   const filteredData = enhancedData ? enhancedData.filter(row => {
-    if (selectedMonth === 'All') return true;
-    const dateVal = String(getVal(row, ['received date', 'date', 'order date']) || '');
-    return getMonthYear(dateVal) === selectedMonth;
+    if (selectedMonth !== 'All') {
+      const dateVal = String(getVal(row, ['received date', 'date', 'order date']) || '');
+      if (getMonthYear(dateVal) !== selectedMonth) return false;
+    }
+    
+    if (searchMaterial) {
+      const materialVal = String(getVal(row, ['work material', 'material', 'work']) || '').toLowerCase();
+      if (!materialVal.includes(searchMaterial.toLowerCase())) return false;
+    }
+    
+    return true;
   }).sort((a, b) => {
     const dateA = parseDateString(getVal(a, ['received date', 'date', 'order date']) || '').getTime();
     const dateB = parseDateString(getVal(b, ['received date', 'date', 'order date']) || '').getTime();
     return dateB - dateA;
   }) : null;
+
+  const { totalFilteredUnits, totalFilteredAmount } = filteredData ? filteredData.reduce((acc, row) => {
+    const units = Number(getVal(row, ['units', 'unit'])) || 0;
+    const amount = Number(getVal(row, ['total', 'amount'])) || 0;
+    return {
+      totalFilteredUnits: acc.totalFilteredUnits + units,
+      totalFilteredAmount: acc.totalFilteredAmount + amount
+    };
+  }, { totalFilteredUnits: 0, totalFilteredAmount: 0 }) : { totalFilteredUnits: 0, totalFilteredAmount: 0 };
 
   const handleGeneratePDF = async () => {
     if (selectedMonth === 'All') {
@@ -374,7 +393,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   };
 
   return (
-    <div className="bg-panel rounded-xl border border-panel-border p-6 mt-6 shadow-lg relative">
+    <div className="bg-panel rounded-xl border border-panel-border p-4 md:p-6 mt-6 shadow-lg relative w-full min-w-0 overflow-hidden">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -436,34 +455,82 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
       {sheetNames.length > 0 && (
         <div className="mb-4 flex flex-col md:flex-row gap-4 animate-in fade-in duration-300 relative z-20">
-          <div className="flex-1">
-            <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Search Doctor Sheet:</label>
-            <div className="relative max-w-md">
-              <svg 
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none" 
-                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input 
-                type="text" 
-                placeholder={currentSheet || "Type doctor name..."}
-                onChange={e => {
-                  const q = e.target.value.toLowerCase();
-                  if (!q) return;
-                  // Basic fuzzy search: find first sheet that includes the text
-                  const match = sheetNames.find(n => n.toLowerCase().includes(q));
-                  if (match) {
-                    setCurrentSheet(match);
-                  }
-                }}
-                className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                 <span className="text-xs font-semibold px-2 py-1 bg-accent/20 text-accent rounded-md">
-                   {currentSheet}
-                 </span>
+          <div className="flex-1 flex flex-col gap-4">
+            <div>
+              <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Search Doctor Sheet:</label>
+              <div className="relative max-w-md">
+                <svg 
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none" 
+                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input 
+                  type="text" 
+                  placeholder={currentSheet || "Type doctor name..."}
+                  onChange={e => {
+                    const q = e.target.value.toLowerCase();
+                    if (!q) return;
+                    // Basic fuzzy search: find first sheet that includes the text
+                    const match = sheetNames.find(n => n.toLowerCase().includes(q));
+                    if (match) {
+                      setCurrentSheet(match);
+                    }
+                  }}
+                  className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                   <span className="text-xs font-semibold px-2 py-1 bg-accent/20 text-accent rounded-md">
+                     {currentSheet}
+                   </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Filter by Work Material:</label>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative max-w-md flex-1">
+                  <svg 
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none" 
+                    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  >
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input 
+                    type="text" 
+                    value={searchMaterial}
+                    onChange={e => setSearchMaterial(e.target.value)}
+                    placeholder="e.g. Zirconia, PFM..."
+                    className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm"
+                  />
+                </div>
+                
+                <div className="relative w-full sm:w-auto shrink-0">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none font-semibold text-sm uppercase">
+                    Total Units:
+                  </div>
+                  <input 
+                    type="text" 
+                    readOnly
+                    value={totalFilteredUnits}
+                    className="w-full sm:w-[140px] bg-black/20 border border-panel-border/50 rounded-lg pl-[100px] pr-3 py-2.5 text-accent font-bold shadow-sm cursor-default outline-none focus:border-panel-border/50"
+                  />
+                </div>
+                
+                <div className="relative w-full sm:w-auto shrink-0">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none font-semibold text-sm uppercase">
+                    Total Amount:
+                  </div>
+                  <input 
+                    type="text" 
+                    readOnly
+                    value={`₹${totalFilteredAmount.toFixed(2)}`}
+                    className="w-full sm:w-[200px] bg-black/20 border border-panel-border/50 rounded-lg pl-[125px] pr-4 py-2.5 text-green-400 font-bold shadow-sm cursor-default outline-none focus:border-panel-border/50"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -513,9 +580,10 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
                     const allKeys = Object.keys(filteredData[0]);
                     const preferredOrder = ['Patient Name', 'Received Date', 'Delivered Date', 'Tooth No', 'Work material', 'Units', 'Status', 'Rate', 'Total'];
                     const finalOrder = [...preferredOrder, ...allKeys.filter(k => !preferredOrder.includes(k))];
-                    return finalOrder.map(k => (
-                      <th key={k} className="px-4 py-3 whitespace-nowrap">{k}</th>
-                    ));
+                    return finalOrder.map(k => {
+                      const isMobileHidden = ['Delivered Date', 'Tooth No', 'Rate', 'Total'].includes(k) || k.toLowerCase() === 'tooth no.';
+                      return <th key={k} className={`px-4 py-3 whitespace-nowrap ${isMobileHidden ? 'hidden md:table-cell' : ''}`}>{k}</th>
+                    });
                   })()}
                 </tr>
               </thead>
@@ -531,7 +599,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
                         if (k.toLowerCase().includes('date') && valStr) {
                            valStr = formatDateForDisplay(valStr);
                         }
-                        return <td key={j} className="px-4 py-3 whitespace-nowrap">{valStr}</td>;
+                        const isMobileHidden = ['Delivered Date', 'Tooth No', 'Rate', 'Total'].includes(k) || k.toLowerCase() === 'tooth no.';
+                        
+                        if (k.toLowerCase() === 'tooth no' || k.toLowerCase() === 'tooth no.') {
+                          return <td key={j} className={`px-4 py-3 whitespace-nowrap ${isMobileHidden ? 'hidden md:table-cell' : ''}`}><PalmerCross teethStr={valStr} /></td>;
+                        }
+                        
+                        return <td key={j} className={`px-4 py-3 whitespace-nowrap ${isMobileHidden ? 'hidden md:table-cell' : ''}`}>{valStr}</td>;
                       });
                     })()}
                   </tr>
