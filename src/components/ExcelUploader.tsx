@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
 import { fetchData, writeData, atomicIncrement, appendToList } from '@/lib/firebase';
-import { sendWhatsAppAction } from '@/app/actions/whatsapp';
 import { getVal, generateId, parseDateString, formatDateForDisplay } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
@@ -240,7 +239,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF with the corrected balance
         const tempDocProfile = { ...docProfile, balance: prevBalance };
-        const pdfBase64 = await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings, selectedMonth !== 'All' ? selectedMonth : undefined);
+        await generateInvoicePDF(filteredData, currentSheet, tempDocProfile, settings, selectedMonth !== 'All' ? selectedMonth : undefined);
 
         // Stop here if it was already in the ledger
         if (isDuplicate) return;
@@ -318,7 +317,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
         // Generate PDF
         const currentSettings = { ...settings, invoiceSequence: localInvoiceSequence };
-        const pdfBase64 = await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings, selectedMonth !== 'All' ? selectedMonth : undefined);
+        await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings, selectedMonth !== 'All' ? selectedMonth : undefined);
 
         const newTransaction = {
           id: generateId(),
