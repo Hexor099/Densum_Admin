@@ -18,6 +18,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Densum Digital Lab",
   description: "Densum Digital Lab Management System",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Densum Lab",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport = {
+  themeColor: "#000000",
 };
 
 export default function RootLayout({
