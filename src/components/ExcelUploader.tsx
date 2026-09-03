@@ -75,25 +75,23 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         if (result.sheetNames && result.sheetNames.length > 0 && !currentSheet) {
           setCurrentSheet(result.sheetNames[0]);
         }
+
+        // Auto-save to cloud
+        try {
+          const res = await writeData('excelData', result.data);
+          if (res.success) {
+            toast.success("Excel data successfully saved to the cloud! It will now load automatically on any PC.");
+          } else {
+            toast.error("Failed to write to database. It might be too large or contain invalid characters.");
+          }
+        } catch(err: any) {
+          toast.error("Failed to save to cloud: " + (err.message || "Unknown error"));
+        }
       } else {
         setError(result.error || "Failed to sync");
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleUploadToCloud = async () => {
-    if (!allSheetsData) return;
-    setIsSyncing(true);
-    try {
-      const res = await writeData('excelData', allSheetsData);
-      if (!res.success) throw new Error("Failed to write to database. It might be too large or contain invalid characters.");
-      toast.success("Excel data successfully saved to the cloud! It will now load automatically on any PC.");
-    } catch (err: any) {
-      toast.error("Failed to save to cloud: " + (err.message || "Unknown error"));
     } finally {
       setIsSyncing(false);
     }
@@ -287,90 +285,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     }
   };
 
-  const handleGenerateAll = async () => {
-    if (selectedMonth === 'All') {
-      toast.error("Please select a specific Billing Month from the dropdown first. Bulk generation for 'All Months' is not allowed.");
-      return;
-    }
 
-    if (!allEnhancedData || Object.keys(allEnhancedData).length === 0) return;
-    
-    if (!confirm(`This will generate invoices and update the ledger for ALL doctors for ${selectedMonth}. Continue?`)) return;
-
-    let processedCount = 0;
-    let skippedCount = 0;
-    const newDocsData = { ...doctorsData };
-    let localInvoiceSequence = Number(settings.invoiceSequence) || 1;
-
-    for (const sheet of Object.keys(allEnhancedData)) {
-      let sheetData = allEnhancedData[sheet];
-      if (!sheetData || sheetData.length === 0) continue;
-      
-      // Apply month filter
-      if (selectedMonth !== 'All') {
-        sheetData = sheetData.filter(row => {
-          const dateVal = String(getVal(row, ['received date', 'date', 'order date']) || '');
-          return getMonthYear(dateVal) === selectedMonth;
-        });
-      }
-
-      if (sheetData.length === 0) continue;
-      
-      let totalInclusive = 0;
-      sheetData.forEach((row: any) => {
-        totalInclusive += Number(row.Total) || 0;
-      });
-
-      if (totalInclusive > 0) {
-        const docProfile = newDocsData[sheet] || {};
-        
-        // Update Ledger check FIRST
-        const currentLedger = await fetchData(`ledger/${sheet}`) || [];
-        
-        // Prevent duplicate bill
-        const invoiceDescription = `Auto-generated Invoice - ${selectedMonth}`;
-        if (currentLedger.some((tx: any) => tx.description === invoiceDescription)) {
-          skippedCount++;
-          continue;
-        }
-
-        // Generate PDF
-        const currentSettings = { ...settings, invoiceSequence: localInvoiceSequence };
-        await generateInvoicePDF(sheetData, sheet, docProfile, currentSettings, selectedMonth !== 'All' ? selectedMonth : undefined);
-
-        const newTransaction = {
-          id: generateId(),
-          date: new Date().toISOString().split('T')[0],
-          type: 'Invoice Generated',
-          amount: totalInclusive,
-          description: invoiceDescription
-        };
-        
-        await appendToList(`ledger/${sheet}`, newTransaction);
-
-        // Update Balance
-        await atomicIncrement(`doctors/${sheet}/balance`, totalInclusive);
-        
-        processedCount++;
-        
-        // Auto-increment invoice sequence number
-        await writeData('settings/invoiceSequence', localInvoiceSequence);
-        localInvoiceSequence++;
-        
-        // Slight delay to prevent browser download blocking
-        await new Promise(res => setTimeout(res, 800));
-      }
-    }
-
-    await refreshSettings();
-    await refreshDoctors();
-    await refreshLedger();
-    if (processedCount > 0 || skippedCount > 0) {
-      toast.success(`Successfully generated PDFs and updated ledgers for ${processedCount} doctors!${skippedCount > 0 ? ` Skipped ${skippedCount} doctors who already had bills generated for ${selectedMonth}.` : ''}`);
-    } else {
-      toast.info("No valid billable data found to generate.");
-    }
-  };
 
   const handleClearAllLedgers = async () => {
     if (!confirm("Are you sure you want to clear the ledger for ALL doctors? This will reset all balances to 0 and erase all transaction history. This cannot be undone.")) return;
@@ -411,36 +326,27 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           <button 
             onClick={handleSync}
             disabled={isSyncing || !file}
-            className="px-5 py-2.5 bg-panel-border border border-white/10 text-white font-medium rounded-lg hover:bg-white/10 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-panel-border border border-white/10 text-white font-medium rounded-lg hover:bg-white/10 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw size={18} className={isSyncing ? "animate-spin text-accent" : "text-accent"} />
+            <RefreshCw size={18} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${isSyncing ? "animate-spin text-accent" : "text-accent"}`} />
             {isSyncing ? "Syncing..." : "Process Data"}
-          </button>
-          <button 
-            onClick={handleUploadToCloud}
-            disabled={!allSheetsData || isSyncing}
-            className="px-5 py-2.5 bg-accent/20 text-accent font-medium rounded-lg hover:bg-accent/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Save this processed data to Firebase so it loads everywhere"
-          >
-            <CloudUpload size={18} />
-            Save to Cloud
           </button>
           <button 
             onClick={handleLoadFromCloud}
             disabled={isSyncing}
-            className="px-5 py-2.5 bg-blue-500/20 text-blue-400 font-medium rounded-lg hover:bg-blue-500/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-blue-500/20 text-blue-400 font-medium rounded-lg hover:bg-blue-500/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Load data from Firebase cloud"
           >
-            <CloudDownload size={18} />
+            <CloudDownload size={18} className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             Load from Cloud
           </button>
           <button 
             onClick={handleClearAllLedgers}
             disabled={isSyncing}
-            className="px-5 py-2.5 bg-red-500/20 text-red-400 font-medium rounded-lg hover:bg-red-500/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-red-500/20 text-red-400 font-medium rounded-lg hover:bg-red-500/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Clear all ledgers for testing"
           >
-            <Trash2 size={18} />
+            <Trash2 size={18} className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             Clear Ledgers
           </button>
         </div>
@@ -480,11 +386,6 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
                   }}
                   className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                   <span className="text-xs font-semibold px-2 py-1 bg-accent/20 text-accent rounded-md">
-                     {currentSheet}
-                   </span>
-                </div>
               </div>
             </div>
 
@@ -509,26 +410,26 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
                 </div>
                 
                 <div className="relative w-full sm:w-auto shrink-0">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none font-semibold text-sm uppercase">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none font-semibold text-xs sm:text-sm uppercase">
                     Total Units:
                   </div>
                   <input 
                     type="text" 
                     readOnly
                     value={totalFilteredUnits}
-                    className="w-full sm:w-[140px] bg-black/20 border border-panel-border/50 rounded-lg pl-[100px] pr-3 py-2.5 text-accent font-bold shadow-sm cursor-default outline-none focus:border-panel-border/50"
+                    className="w-full sm:w-[160px] bg-black/20 border border-panel-border/50 rounded-lg pl-[90px] sm:pl-[100px] pr-3 py-2.5 text-sm sm:text-base text-accent font-bold shadow-sm cursor-default outline-none focus:border-panel-border/50"
                   />
                 </div>
                 
                 <div className="relative w-full sm:w-auto shrink-0">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none font-semibold text-sm uppercase">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none font-semibold text-xs sm:text-sm uppercase">
                     Total Amount:
                   </div>
                   <input 
                     type="text" 
                     readOnly
                     value={`₹${totalFilteredAmount.toFixed(2)}`}
-                    className="w-full sm:w-[200px] bg-black/20 border border-panel-border/50 rounded-lg pl-[125px] pr-4 py-2.5 text-green-400 font-bold shadow-sm cursor-default outline-none focus:border-panel-border/50"
+                    className="w-full sm:w-[240px] bg-black/20 border border-panel-border/50 rounded-lg pl-[110px] sm:pl-[125px] pr-4 py-2.5 text-sm sm:text-base text-green-400 font-bold shadow-sm cursor-default outline-none focus:border-panel-border/50"
                   />
                 </div>
               </div>
@@ -555,15 +456,10 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center justify-between mb-4 mt-2">
             <h3 className="font-semibold text-white flex items-center gap-2">
-               Data Synced ({filteredData.length} rows)
+               {currentSheet ? `Doctor: ${currentSheet}` : "Data Synced"} <span className="text-foreground/50 font-normal">({filteredData.length} rows)</span>
             </h3>
             <div className="flex gap-3">
-              <button 
-                onClick={handleGenerateAll}
-                className="px-4 py-2 bg-purple-500/20 text-purple-400 font-bold rounded-lg hover:bg-purple-500/30 transition-all shadow-sm border border-purple-500/30"
-              >
-                Generate All Invoices
-              </button>
+
               <button 
                 onClick={handleGeneratePDF}
                 className="px-4 py-2 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)]"

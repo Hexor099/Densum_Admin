@@ -161,44 +161,45 @@ export default function Home() {
       </header>
 
       {/* KPI Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">Total Outstanding</h3>
-            <Banknote size={18} className="text-red-400" />
+      <div className="grid grid-cols-4 gap-2 sm:gap-4 mb-6">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-5 shadow-lg flex flex-col justify-center">
+          <div className="flex items-center justify-between mb-1 sm:mb-3">
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm leading-tight break-words">Outstanding</h3>
+            <Banknote size={16} className="text-red-400 hidden sm:block sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-red-400">₹{kpis.totalOutstanding.toLocaleString()}</div>
+          <div className="text-sm sm:text-2xl font-bold text-red-400">₹{kpis.totalOutstanding.toLocaleString()}</div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">Revenue (This Month)</h3>
-            <TrendingUp size={18} className="text-green-400" />
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-5 shadow-lg flex flex-col justify-center">
+          <div className="flex items-center justify-between mb-1 sm:mb-3">
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm leading-tight break-words">Revenue</h3>
+            <TrendingUp size={16} className="text-green-400 hidden sm:block sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-green-400">₹{kpis.thisMonthRevenue.toLocaleString()}</div>
-          <div className="text-xs text-foreground/50 mt-1">
+          <div className="text-sm sm:text-2xl font-bold text-green-400">₹{kpis.thisMonthRevenue.toLocaleString()}</div>
+          <div className="text-[8px] sm:text-xs text-foreground/50 mt-0.5 sm:mt-1 truncate">
             {kpis.lastMonthRevenue > 0 ? (
               <span className={kpis.thisMonthRevenue >= kpis.lastMonthRevenue ? 'text-green-400' : 'text-red-400'}>
-                {(((kpis.thisMonthRevenue - kpis.lastMonthRevenue) / kpis.lastMonthRevenue) * 100).toFixed(1)}% vs last month
+                {(((kpis.thisMonthRevenue - kpis.lastMonthRevenue) / kpis.lastMonthRevenue) * 100).toFixed(0)}%
+                <span className="hidden sm:inline"> vs last month</span>
               </span>
-            ) : "No data last month"}
+            ) : "N/A"}
           </div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">Low Stock Items</h3>
-            <AlertTriangle size={18} className="text-orange-400" />
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-5 shadow-lg flex flex-col justify-center">
+          <div className="flex items-center justify-between mb-1 sm:mb-3">
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm leading-tight break-words">Low Stock</h3>
+            <AlertTriangle size={16} className="text-orange-400 hidden sm:block sm:w-[18px] sm:h-[18px]" />
           </div>
-          <div className="text-2xl font-bold text-orange-400">{kpis.lowStockCount}</div>
+          <div className="text-sm sm:text-2xl font-bold text-orange-400">{kpis.lowStockCount}</div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm">Overdue Payments (&gt;30d)</h3>
-            <AlertCircle size={18} className="text-purple-400" />
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-5 shadow-lg flex flex-col justify-center">
+          <div className="flex items-center justify-between mb-1 sm:mb-3">
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm leading-tight break-words">Overdue</h3>
+            <AlertCircle size={16} className="text-purple-400 hidden sm:block sm:w-[18px] sm:h-[18px] shrink-0" />
           </div>
-          <div className="text-2xl font-bold text-purple-400">{kpis.overdueCount} <span className="text-sm font-normal text-foreground/50">doctors</span></div>
+          <div className="text-sm sm:text-2xl font-bold text-purple-400">{kpis.overdueCount} <span className="hidden sm:inline text-sm font-normal text-foreground/50">docs</span></div>
         </div>
       </div>
 

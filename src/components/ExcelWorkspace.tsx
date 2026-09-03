@@ -110,11 +110,47 @@ export function ExcelWorkspace() {
     return '';
   };
 
-  const handleSaveEntry = (doctorName: string, entry: any) => {
+  const saveWorkspaceData = async (sheetsData: any[]) => {
+    setIsSyncing(true);
+    try {
+      const flatData: Record<string, any[]> = {};
+      
+      sheetsData.forEach((sheet) => {
+        const validRows = sheet.rowData.filter((row: any) => {
+          return row && Object.values(row).some(v => v !== null && v !== undefined && v !== "");
+        });
+
+        if (validRows.length > 0) {
+          const safeSheetName = sheet.name.replace(/\./g, ' ').replace(/[#$\[\]]/g, '');
+          const cleanRowsToSave = validRows.map((row: any) => {
+            const r = { ...row };
+            delete r['Fitted'];
+            delete r['fitted'];
+            if (!r['Delivered Date']) r['Delivered Date'] = 'Not Delivered';
+            if (!r['Status']) r['Status'] = 'Active';
+            return r;
+          });
+          flatData[safeSheetName] = cleanRowsToSave;
+        }
+      });
+
+      if (Object.keys(flatData).length > 0) {
+        await writeData("excelData", flatData);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to auto-save to cloud.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSaveEntry = async (doctorName: string, entry: any) => {
     const entryToSave = { ...entry };
     if (!entryToSave['Delivered Date']) entryToSave['Delivered Date'] = 'Not Delivered';
     if (!entryToSave['Status']) entryToSave['Status'] = 'Active';
 
+    let finalSheets: any[] = [];
     setSheets(prevSheets => {
       let sheetExists = false;
       const updatedSheets = prevSheets.map(s => {
@@ -132,61 +168,19 @@ export function ExcelWorkspace() {
           rowData: [entryToSave]
         };
         setActiveSheetId(newSheet.id);
-        return [...updatedSheets, newSheet];
+        finalSheets = [...updatedSheets, newSheet];
+        return finalSheets;
       }
 
       const targetSheet = updatedSheets.find(s => s.name.toLowerCase() === doctorName.toLowerCase());
       if (targetSheet) setActiveSheetId(targetSheet.id);
 
-      return updatedSheets;
+      finalSheets = updatedSheets;
+      return finalSheets;
     });
     
     setIsModalOpen(false);
-  };
-
-  const handleSaveToCloud = async () => {
-    if (editingRow !== null) {
-      toast.error("Please save or cancel your edits before syncing.");
-      return;
-    }
-    
-    setIsSyncing(true);
-    try {
-      const flatData: Record<string, any[]> = {};
-      
-      sheets.forEach((sheet) => {
-        const validRows = sheet.rowData.filter(row => {
-          return row && Object.values(row).some(v => v !== null && v !== undefined && v !== "");
-        });
-
-        if (validRows.length > 0) {
-          const safeSheetName = sheet.name.replace(/\./g, ' ').replace(/[#$\[\]]/g, '');
-          const cleanRowsToSave = validRows.map(row => {
-            const r = { ...row };
-            delete r['Fitted'];
-            delete r['fitted'];
-            if (!r['Delivered Date']) r['Delivered Date'] = 'Not Delivered';
-            if (!r['Status']) r['Status'] = 'Active';
-            return r;
-          });
-          flatData[safeSheetName] = cleanRowsToSave;
-        }
-      });
-
-      if (Object.keys(flatData).length === 0) {
-        toast.warning("All sheets are completely empty. Nothing to save.");
-        setIsSyncing(false);
-        return;
-      }
-
-      await writeData("excelData", flatData);
-      toast.success("Workspace saved to cloud successfully!");
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to save workspace.");
-    } finally {
-      setIsSyncing(false);
-    }
+    await saveWorkspaceData(finalSheets);
   };
 
   const startEditing = (row: any) => {
@@ -199,32 +193,43 @@ export function ExcelWorkspace() {
     setEditFormData({});
   };
 
-  const saveEditing = () => {
-    setSheets(prev => prev.map(sheet => {
-      if (sheet.id === activeSheetId) {
-        const newData = [...sheet.rowData];
-        const index = newData.indexOf(editingRow);
-        if (index !== -1) {
-          newData[index] = editFormData;
+  const saveEditing = async () => {
+    let finalSheets: any[] = [];
+    setSheets(prev => {
+      finalSheets = prev.map(sheet => {
+        if (sheet.id === activeSheetId) {
+          const newData = [...sheet.rowData];
+          const index = newData.indexOf(editingRow);
+          if (index !== -1) {
+            newData[index] = editFormData;
+          }
+          return { ...sheet, rowData: newData };
         }
-        return { ...sheet, rowData: newData };
-      }
-      return sheet;
-    }));
+        return sheet;
+      });
+      return finalSheets;
+    });
     setEditingRow(null);
     setEditFormData({});
-    toast.success("Entry updated locally. Remember to Save to Cloud.");
+    toast.success("Entry updated!");
+    await saveWorkspaceData(finalSheets);
   };
 
-  const deleteRow = (rowToDelete: any) => {
+  const deleteRow = async (rowToDelete: any) => {
     if (!confirm("Are you sure you want to delete this entry?")) return;
-    setSheets(prev => prev.map(sheet => {
-      if (sheet.id === activeSheetId) {
-        const newData = sheet.rowData.filter(r => r !== rowToDelete);
-        return { ...sheet, rowData: newData };
-      }
-      return sheet;
-    }));
+    let finalSheets: any[] = [];
+    setSheets(prev => {
+      finalSheets = prev.map(sheet => {
+        if (sheet.id === activeSheetId) {
+          const newData = sheet.rowData.filter(r => r !== rowToDelete);
+          return { ...sheet, rowData: newData };
+        }
+        return sheet;
+      });
+      return finalSheets;
+    });
+    toast.success("Entry deleted!");
+    await saveWorkspaceData(finalSheets);
   };
 
   if (isInitializing) return null;
@@ -304,13 +309,8 @@ export function ExcelWorkspace() {
                   handleTabSwitch(match.id);
                 }
               }}
-              className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-24 py-2 text-sm text-white focus:outline-none focus:border-accent transition-colors shadow-inner"
+              className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-accent transition-colors shadow-inner"
             />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2">
-               <span className="text-[10px] font-semibold px-2 py-1 bg-accent/20 text-accent rounded-md max-w-[120px] truncate block" title={activeSheet?.name}>
-                 {activeSheet?.name || "None"}
-               </span>
-            </div>
           </div>
           <button
             onClick={handleAddSheet}
@@ -325,25 +325,22 @@ export function ExcelWorkspace() {
         <div className="flex gap-2 shrink-0 ml-4">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-green-600/20 text-green-400 font-semibold rounded-lg hover:bg-green-600/30 transition-all flex items-center gap-2 border border-green-600/50"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-green-600/20 text-green-400 font-semibold rounded-lg hover:bg-green-600/30 transition-all flex items-center gap-1.5 sm:gap-2 border border-green-600/50"
           >
-            <PlusCircle size={18} />
+            <PlusCircle size={18} className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             Add Entry
-          </button>
-          <button
-            onClick={handleSaveToCloud}
-            disabled={isSyncing}
-            className="px-4 py-2 bg-blue-600/20 text-blue-400 font-semibold rounded-lg hover:bg-blue-600/30 transition-all flex items-center gap-2 disabled:opacity-50 border border-blue-600/50"
-          >
-            {isSyncing ? <RefreshCw size={18} className="animate-spin" /> : <CloudUpload size={18} />}
-            {isSyncing ? "Saving..." : "Save to Cloud"}
           </button>
         </div>
       </div>
       
       {/* Spreadsheet Editor Area */}
-      <div className="flex-1 w-full relative p-4 min-h-0">
-        <div className="overflow-x-auto overflow-y-auto h-full border border-panel-border rounded-lg bg-black/20 custom-scrollbar">
+      <div className="flex-1 w-full relative p-4 min-h-0 flex flex-col">
+        <div className="mb-3 pl-2">
+          <h2 className="text-lg font-bold text-white tracking-wide">
+            {activeSheet?.name ? `Doctor: ${activeSheet.name}` : "No Doctor Selected"}
+          </h2>
+        </div>
+        <div className="overflow-x-auto overflow-y-auto flex-1 border border-panel-border rounded-lg bg-black/20 custom-scrollbar">
           <table className="w-full text-sm text-left relative">
             <thead className="text-xs text-foreground/60 uppercase bg-[#08101a] shadow-sm sticky top-0 z-10">
               <tr>

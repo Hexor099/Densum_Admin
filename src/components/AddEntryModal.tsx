@@ -150,7 +150,7 @@ export function AddEntryModal({
   const filteredSuggestions = materialSuggestions.filter(m => m.toLowerCase().includes(workMaterial.toLowerCase()));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-panel border border-panel-border rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
         <div className="flex justify-between items-center p-4 border-b border-panel-border">
           <h2 className="text-xl font-bold text-white">Add New Lab Entry</h2>
@@ -313,15 +313,15 @@ export function AddEntryModal({
         <div className="p-4 border-t border-panel-border bg-black/20 flex justify-end gap-3 rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 text-white/70 font-medium rounded-lg hover:text-white hover:bg-white/5 transition-all"
+            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base text-white/70 font-medium rounded-lg hover:text-white hover:bg-white/5 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2.5 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)] flex items-center gap-2"
+            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)] flex items-center gap-2"
           >
-            <Save size={18} />
+            <Save size={18} className="w-4 h-4 sm:w-5 sm:h-5" />
             Save Entry
           </button>
         </div>
