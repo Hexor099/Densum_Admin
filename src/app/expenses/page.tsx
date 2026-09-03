@@ -295,7 +295,7 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-6 mb-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Log Expense Form */}
         <div className="xl:col-span-1 space-y-6">
           <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
