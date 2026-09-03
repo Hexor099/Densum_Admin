@@ -29,7 +29,7 @@ export function Navigation() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [searchData, setSearchData] = useState<{ doctors: any, catalog: any, expenses: any } | null>(null);
+  const [searchData, setSearchData] = useState<{ doctors: any, catalog: any, expenses: any, excelData: any } | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const storeDoctors = useStore((state) => state.doctors);
   const storeCatalog = useStore((state) => state.catalog);
@@ -39,7 +39,8 @@ export function Navigation() {
     if (!searchData) {
       try {
         const expenses = await fetchData('expenses');
-        setSearchData({ doctors: storeDoctors, catalog: storeCatalog, expenses: expenses || [] });
+        const excelData = await fetchData('excelData');
+        setSearchData({ doctors: storeDoctors, catalog: storeCatalog, expenses: expenses || [], excelData: excelData || {} });
       } catch (e) {
         console.error("Failed to load search data", e);
       }
@@ -68,6 +69,30 @@ export function Navigation() {
         results.push({ type: 'Doctor', title: docName, subtitle: 'Ledger Profile', href: '/ledger' });
       }
     });
+
+    // Patients (from excelData)
+    if (searchData.excelData) {
+      const seenPatients = new Set<string>();
+      Object.entries(searchData.excelData).forEach(([docName, rows]: [string, any]) => {
+        if (Array.isArray(rows)) {
+          rows.forEach((row: any) => {
+            const patientName = row['Patient Name'];
+            if (patientName && String(patientName).toLowerCase().includes(term)) {
+              const uniqueKey = `${docName}-${patientName}`;
+              if (!seenPatients.has(uniqueKey)) {
+                seenPatients.add(uniqueKey);
+                results.push({ 
+                  type: 'Patient', 
+                  title: String(patientName), 
+                  subtitle: `Doctor: ${docName}`, 
+                  href: '/workspace' 
+                });
+              }
+            }
+          });
+        }
+      });
+    }
 
     // Catalog
     Object.keys(searchData.catalog).forEach(itemId => {
