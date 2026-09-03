@@ -78,36 +78,36 @@ export default function BankBookPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+        <h1 className="text-sm sm:text-3xl font-bold text-white mb-2 flex items-center gap-3">
           <Building2 className="text-accent" /> Bank & Cash Book
         </h1>
         <p className="text-foreground/70">Reconcile payments and track your cash vs bank balances.</p>
       </header>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg flex flex-col justify-center">
+      <div className="grid grid-cols-3 gap-2 sm:gap-6 mb-6">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center flex flex-col justify-center">
           <div className="flex items-center gap-3 mb-2">
             <Wallet className="text-green-400" size={24} />
             <h3 className="font-semibold text-foreground/80">Cash on Hand</h3>
           </div>
-          <p className="text-3xl font-bold text-white">₹{stats.cash.toLocaleString()}</p>
+          <p className="text-sm sm:text-3xl font-bold text-white">₹{stats.cash.toLocaleString()}</p>
         </div>
         
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg flex flex-col justify-center">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center flex flex-col justify-center">
           <div className="flex items-center gap-3 mb-2">
             <Building2 className="text-accent" size={24} />
             <h3 className="font-semibold text-foreground/80">Bank (Cleared)</h3>
           </div>
-          <p className="text-3xl font-bold text-white">₹{stats.bankCleared.toLocaleString()}</p>
+          <p className="text-sm sm:text-3xl font-bold text-white">₹{stats.bankCleared.toLocaleString()}</p>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg flex flex-col justify-center">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center flex flex-col justify-center">
           <div className="flex items-center gap-3 mb-2">
             <Circle className="text-yellow-400" size={24} />
             <h3 className="font-semibold text-foreground/80">Bank (Uncleared)</h3>
           </div>
-          <p className="text-3xl font-bold text-white">₹{stats.bankUncleared.toLocaleString()}</p>
+          <p className="text-sm sm:text-3xl font-bold text-white">₹{stats.bankUncleared.toLocaleString()}</p>
         </div>
       </div>
 

@@ -187,7 +187,7 @@ export default function FinancialStatementsPage() {
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+          <h1 className="text-sm sm:text-3xl font-bold text-white mb-2 flex items-center gap-3">
             <Scale className="text-accent" /> Financial Statements & ITR
           </h1>
           <p className="text-foreground/70">Profit &amp; Loss statement and ITR-3 vs ITR-4 tax comparison.</p>
@@ -216,27 +216,27 @@ export default function FinancialStatementsPage() {
       </header>
 
       {/* P&L Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+      <div className="grid grid-cols-3 gap-2 sm:gap-6 mb-6">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={18} className="text-accent" />
-            <h3 className="text-foreground/70 font-semibold text-sm uppercase">Revenue</h3>
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm uppercase leading-tight break-words">Revenue</h3>
           </div>
-          <div className="text-3xl font-bold text-white">₹{totalRevenue.toLocaleString()}</div>
+          <div className="text-sm sm:text-3xl font-bold text-white">₹{totalRevenue.toLocaleString()}</div>
         </div>
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-3">
             <TrendingDown size={18} className="text-red-400" />
-            <h3 className="text-foreground/70 font-semibold text-sm uppercase">Total Expenses (incl. GST)</h3>
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm uppercase leading-tight break-words">Total Expenses (incl. GST)</h3>
           </div>
-          <div className="text-3xl font-bold text-red-400">₹{totalExpensesWithGST.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+          <div className="text-sm sm:text-3xl font-bold text-red-400">₹{totalExpensesWithGST.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
         </div>
-        <div className={`bg-panel rounded-xl border ${netProfitActual >= 0 ? 'border-green-500/30' : 'border-red-500/30'} p-6 shadow-lg`}>
+        <div className={`bg-panel rounded-xl border ${netProfitActual >= 0 ? 'border-green-500/30' : 'border-red-500/30'} p-2 sm:p-6 shadow-lg flex flex-col justify-center`}>
           <div className="flex items-center gap-2 mb-3">
             <Calculator size={18} className={netProfitActual >= 0 ? 'text-green-400' : 'text-red-400'} />
-            <h3 className="text-foreground/70 font-semibold text-sm uppercase">Net Profit</h3>
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm uppercase leading-tight break-words">Net Profit</h3>
           </div>
-          <div className={`text-3xl font-bold ${netProfitActual >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          <div className={`text-sm sm:text-3xl font-bold ${netProfitActual >= 0 ? 'text-green-400' : 'text-red-400'}`}>
             ₹{netProfitActual.toLocaleString(undefined, {maximumFractionDigits: 0})}
           </div>
           <div className="text-xs text-foreground/50 mt-1">
@@ -358,7 +358,7 @@ export default function FinancialStatementsPage() {
       </div>
 
       {/* Best Option Banner */}
-      <div className="bg-gradient-to-r from-green-500/10 via-green-500/5 to-transparent rounded-xl border border-green-500/30 p-6 shadow-lg flex items-center gap-4">
+      <div className="bg-gradient-to-r from-green-500/10 via-green-500/5 to-transparent rounded-xl border border-green-500/30 p-2 sm:p-6 shadow-lg flex flex-col justify-center flex items-center gap-4">
         <div className="w-14 h-14 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
           <Calculator size={28} className="text-green-400" />
         </div>

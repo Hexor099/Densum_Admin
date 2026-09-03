@@ -221,7 +221,7 @@ export default function ExpensesPage() {
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Expense Tracker & P&L</h1>
+          <h1 className="text-sm sm:text-3xl font-bold text-white mb-2">Expense Tracker & P&L</h1>
           <p className="text-foreground/70">Monitor operational costs and calculate live Net Profit.</p>
         </div>
         
@@ -259,24 +259,24 @@ export default function ExpensesPage() {
       </header>
 
       {/* P&L Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+      <div className="grid grid-cols-3 gap-2 sm:gap-6 mb-6">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-foreground/70 font-semibold tracking-wide uppercase text-sm">Taxable Revenue (Ledger)</h3>
             <div className="p-2 bg-accent/10 rounded-lg"><TrendingUp size={20} className="text-accent" /></div>
           </div>
-          <div className="text-3xl font-bold text-white">₹{taxableRevenue.toLocaleString()}</div>
+          <div className="text-sm sm:text-3xl font-bold text-white">₹{taxableRevenue.toLocaleString()}</div>
         </div>
         
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-foreground/70 font-semibold tracking-wide uppercase text-sm">Total Expenses</h3>
             <div className="p-2 bg-red-500/10 rounded-lg"><TrendingDown size={20} className="text-red-400" /></div>
           </div>
-          <div className="text-3xl font-bold text-red-400">₹{totalExpenses.toLocaleString()}</div>
+          <div className="text-sm sm:text-3xl font-bold text-red-400">₹{totalExpenses.toLocaleString()}</div>
         </div>
 
-        <div className={`bg-panel rounded-xl border ${netProfit >= 0 ? 'border-green-500/50' : 'border-red-500/50'} p-6 shadow-lg relative overflow-hidden`}>
+        <div className={`bg-panel rounded-xl border ${netProfit >= 0 ? 'border-green-500/50' : 'border-red-500/50'} p-2 sm:p-6 shadow-lg flex flex-col justify-center relative overflow-hidden`}>
           <div className={`absolute top-0 right-0 w-32 h-32 blur-3xl -z-10 ${netProfit >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}></div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-foreground/70 font-semibold tracking-wide uppercase text-sm">Net Profit</h3>
@@ -285,7 +285,7 @@ export default function ExpensesPage() {
             </div>
           </div>
           <div className="flex items-end gap-3">
-            <div className={`text-3xl font-bold ${netProfit >= 0 ? 'text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.3)]' : 'text-red-400'}`}>
+            <div className={`text-sm sm:text-3xl font-bold ${netProfit >= 0 ? 'text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.3)]' : 'text-red-400'}`}>
               ₹{netProfit.toLocaleString()}
             </div>
             <div className="mb-1 text-sm font-semibold text-foreground/50">
@@ -295,11 +295,11 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-6 mb-6">
         {/* Log Expense Form */}
         <div className="xl:col-span-1 space-y-6">
-          <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
-            <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+          <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
+            <h2 className="text-sm sm:text-xl font-bold mb-6 text-white flex items-center gap-2">
               <Receipt size={20} className="text-accent" /> Log Expense
             </h2>
             <div className="space-y-4">
@@ -347,7 +347,7 @@ export default function ExpensesPage() {
             </div>
           </div>
           
-          <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+          <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
             <h2 className="text-lg font-bold mb-4 text-white">Expense Breakdown</h2>
             <div className="h-[250px]">
               {chartData.length > 0 ? (

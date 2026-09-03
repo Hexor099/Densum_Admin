@@ -138,7 +138,7 @@ export default function AgingReportPage() {
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+          <h1 className="text-sm sm:text-3xl font-bold text-white mb-2 flex items-center gap-3">
             <Clock className="text-accent" /> Receivables Aging Report
           </h1>
           <p className="text-foreground/70">Track overdue balances by age (FIFO method) to prioritize collections.</p>
@@ -156,26 +156,26 @@ export default function AgingReportPage() {
       </header>
 
       {/* Summary Row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-5 gap-2 sm:gap-6 mb-6">
         <div className="bg-panel border border-panel-border p-4 rounded-xl shadow-lg">
           <div className="text-xs text-foreground/60 uppercase font-bold tracking-wider mb-1">0 - 30 Days</div>
-          <div className="text-xl font-bold text-white">₹{totalBuckets['0_30'].toLocaleString()}</div>
+          <div className="text-sm sm:text-xl font-bold text-white">₹{totalBuckets['0_30'].toLocaleString()}</div>
         </div>
         <div className="bg-panel border border-panel-border p-4 rounded-xl shadow-lg">
           <div className="text-xs text-foreground/60 uppercase font-bold tracking-wider mb-1">31 - 60 Days</div>
-          <div className="text-xl font-bold text-yellow-400">₹{totalBuckets['31_60'].toLocaleString()}</div>
+          <div className="text-sm sm:text-xl font-bold text-yellow-400">₹{totalBuckets['31_60'].toLocaleString()}</div>
         </div>
         <div className="bg-panel border border-panel-border p-4 rounded-xl shadow-lg">
           <div className="text-xs text-foreground/60 uppercase font-bold tracking-wider mb-1">61 - 90 Days</div>
-          <div className="text-xl font-bold text-orange-400">₹{totalBuckets['61_90'].toLocaleString()}</div>
+          <div className="text-sm sm:text-xl font-bold text-orange-400">₹{totalBuckets['61_90'].toLocaleString()}</div>
         </div>
         <div className="bg-panel border border-panel-border p-4 rounded-xl shadow-lg">
           <div className="text-xs text-foreground/60 uppercase font-bold tracking-wider mb-1">&gt; 90 Days</div>
-          <div className="text-xl font-bold text-red-400">₹{totalBuckets['90_plus'].toLocaleString()}</div>
+          <div className="text-sm sm:text-xl font-bold text-red-400">₹{totalBuckets['90_plus'].toLocaleString()}</div>
         </div>
         <div className="bg-panel border border-accent/30 p-4 rounded-xl shadow-[0_0_15px_rgba(0,194,255,0.1)] col-span-2 md:col-span-1">
           <div className="text-xs text-accent uppercase font-bold tracking-wider mb-1">Total Outstanding</div>
-          <div className="text-xl font-bold text-white">₹{totalBuckets.total.toLocaleString()}</div>
+          <div className="text-sm sm:text-xl font-bold text-white">₹{totalBuckets.total.toLocaleString()}</div>
         </div>
       </div>
 

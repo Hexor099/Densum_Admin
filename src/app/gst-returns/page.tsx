@@ -154,7 +154,7 @@ export default function GSTReturnsPage() {
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+          <h1 className="text-sm sm:text-3xl font-bold text-white mb-2 flex items-center gap-3">
             <ShieldCheck className="text-green-400" /> GST Returns (GSTR-4)
           </h1>
           <p className="text-foreground/70">Composition Scheme — Annual return data for filing.</p>
@@ -183,13 +183,13 @@ export default function GSTReturnsPage() {
       </header>
 
       {/* Annual Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+      <div className="grid grid-cols-4 gap-2 sm:gap-6 mb-6">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={18} className="text-accent" />
-            <h3 className="text-foreground/70 font-semibold text-sm uppercase tracking-wide">Annual Turnover</h3>
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm uppercase leading-tight break-words tracking-wide">Annual Turnover</h3>
           </div>
-          <div className="text-3xl font-bold text-white">₹{annualTotals.outwardSupply.toLocaleString()}</div>
+          <div className="text-sm sm:text-3xl font-bold text-white">₹{annualTotals.outwardSupply.toLocaleString()}</div>
           <div className="mt-2">
             <div className="w-full bg-black/40 rounded-full h-1.5">
               <div 
@@ -201,27 +201,27 @@ export default function GSTReturnsPage() {
           </div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-green-500/30 p-6 shadow-lg">
+        <div className="bg-panel rounded-xl border border-green-500/30 p-2 sm:p-6 shadow-lg flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-3">
             <ShieldCheck size={18} className="text-green-400" />
-            <h3 className="text-foreground/70 font-semibold text-sm uppercase tracking-wide">Total Tax Payable</h3>
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm uppercase leading-tight break-words tracking-wide">Total Tax Payable</h3>
           </div>
-          <div className="text-3xl font-bold text-green-400">₹{annualTotals.taxLiability.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+          <div className="text-sm sm:text-3xl font-bold text-green-400">₹{annualTotals.taxLiability.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
           <div className="text-xs text-foreground/50 mt-1">@ {compositionRate}% of turnover</div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm uppercase tracking-wide">CGST ({compositionRate / 2}%)</h3>
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm uppercase leading-tight break-words tracking-wide">CGST ({compositionRate / 2}%)</h3>
           </div>
-          <div className="text-2xl font-bold text-white">₹{annualTotals.cgst.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+          <div className="text-sm sm:text-2xl font-bold text-white">₹{annualTotals.cgst.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
         </div>
 
-        <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-foreground/70 font-semibold text-sm uppercase tracking-wide">SGST ({compositionRate / 2}%)</h3>
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm uppercase leading-tight break-words tracking-wide">SGST ({compositionRate / 2}%)</h3>
           </div>
-          <div className="text-2xl font-bold text-white">₹{annualTotals.sgst.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+          <div className="text-sm sm:text-2xl font-bold text-white">₹{annualTotals.sgst.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
         </div>
       </div>
 
@@ -274,7 +274,7 @@ export default function GSTReturnsPage() {
           </div>
           <div className="text-right">
             <div className="text-sm text-foreground/50">Total Inward Supply</div>
-            <div className="text-xl font-bold text-white">₹{totalInwardSupply.toLocaleString()}</div>
+            <div className="text-sm sm:text-xl font-bold text-white">₹{totalInwardSupply.toLocaleString()}</div>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -309,7 +309,7 @@ export default function GSTReturnsPage() {
       </div>
 
       {/* Important Notes */}
-      <div className="bg-panel rounded-xl border border-yellow-500/30 p-6 shadow-lg">
+      <div className="bg-panel rounded-xl border border-yellow-500/30 p-2 sm:p-6 shadow-lg flex flex-col justify-center">
         <div className="flex items-center gap-3 mb-4">
           <AlertTriangle size={20} className="text-yellow-400" />
           <h3 className="font-bold text-white">Important Notes for GSTR-4 Filing</h3>

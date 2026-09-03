@@ -387,10 +387,10 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
           )}
         </div>
 
-        <div className="p-5 border-t border-panel-border/50 bg-black/20 flex justify-end gap-3">
+        <div className="p-4 sm:p-5 border-t border-panel-border/50 bg-black/20 flex justify-end gap-3">
           <button 
             onClick={onClose}
-            className="px-5 py-2.5 text-foreground/70 font-medium hover:text-white transition-colors"
+            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base text-foreground/70 font-medium hover:text-white transition-colors"
             disabled={loading}
           >
             Cancel
@@ -400,10 +400,10 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
             <button
               onClick={handleParse}
               disabled={!file || loading}
-              className="px-5 py-2.5 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)] disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)] disabled:opacity-50 flex items-center gap-2"
             >
               {loading ? (
-                <><Loader2 size={18} className="animate-spin" /> Analyzing Bill...</>
+                <><Loader2 size={18} className="w-4 h-4 sm:w-[18px] sm:h-[18px] animate-spin" /> Analyzing Bill...</>
               ) : (
                 "Extract Items via AI"
               )}
@@ -412,10 +412,10 @@ export function BillUploadModal({ onClose, onSuccess }: BillUploadModalProps) {
             <button
               onClick={handleConfirm}
               disabled={loading}
-              className="px-5 py-2.5 bg-green-500 text-white font-bold rounded-lg hover:bg-green-400 transition-all shadow-[0_0_15px_rgba(34,197,94,0.4)] disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-green-500 text-white font-bold rounded-lg hover:bg-green-400 transition-all shadow-[0_0_15px_rgba(34,197,94,0.4)] disabled:opacity-50 flex items-center gap-2"
             >
               {loading ? (
-                <><Loader2 size={18} className="animate-spin" /> Saving...</>
+                <><Loader2 size={18} className="w-4 h-4 sm:w-[18px] sm:h-[18px] animate-spin" /> Saving...</>
               ) : (
                 "Confirm & Update Inventory"
               )}

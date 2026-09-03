@@ -462,7 +462,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
 
               <button 
                 onClick={handleGeneratePDF}
-                className="px-4 py-2 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)]"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)]"
               >
                 Generate PDF (Current)
               </button>

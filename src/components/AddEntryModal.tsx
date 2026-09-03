@@ -184,10 +184,11 @@ export function AddEntryModal({
                 </div>
                 <button
                   onClick={() => setIsAddingDoctor(true)}
-                  className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 hover:text-white text-white/70 flex items-center gap-2 transition-colors"
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 hover:text-white text-white/70 flex items-center gap-1.5 sm:gap-2 transition-colors shrink-0"
                 >
-                  <Plus size={18} />
-                  New Doctor
+                  <Plus size={18} className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                  <span className="hidden sm:inline">New Doctor</span>
+                  <span className="sm:hidden">New</span>
                 </button>
               </div>
             ) : (
@@ -205,7 +206,7 @@ export function AddEntryModal({
                     setIsAddingDoctor(false);
                     setNewDoctorName("");
                   }}
-                  className="px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors shrink-0"
                 >
                   Cancel
                 </button>
