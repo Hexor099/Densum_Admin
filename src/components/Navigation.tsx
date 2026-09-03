@@ -62,7 +62,7 @@ export function Navigation() {
   let results: { type: string, title: string, subtitle: string, href: string }[] = [];
   if (searchTerm.trim() && searchData) {
     const term = searchTerm.toLowerCase();
-    
+
     // Doctors
     Object.keys(searchData.doctors).forEach(docName => {
       if (docName.toLowerCase().includes(term)) {
@@ -81,11 +81,11 @@ export function Navigation() {
               const uniqueKey = `${docName}-${patientName}`;
               if (!seenPatients.has(uniqueKey)) {
                 seenPatients.add(uniqueKey);
-                results.push({ 
-                  type: 'Patient', 
-                  title: String(patientName), 
-                  subtitle: `Doctor: ${docName}`, 
-                  href: '/workspace' 
+                results.push({
+                  type: 'Patient',
+                  title: String(patientName),
+                  subtitle: `Doctor: ${docName}`,
+                  href: '/workspace'
                 });
               }
             }
@@ -109,7 +109,7 @@ export function Navigation() {
         results.push({ type: 'Expense', title: exp.desc, subtitle: `₹${exp.amount} - ${exp.category}`, href: '/expenses' });
       }
     });
-    
+
     // limit results
     results = results.slice(0, 10);
   }
@@ -120,26 +120,26 @@ export function Navigation() {
         <img src="/app-logo.png" alt="Densum Logo" className="w-12 h-12 object-contain rounded-xl drop-shadow-[0_0_15px_rgba(0,194,255,0.4)]" />
         <h1 className="text-2xl font-bold text-accent-glow tracking-widest drop-shadow-[0_0_10px_rgba(0,194,255,0.5)]">DENSUM</h1>
       </div>
-      
+
       <div className="p-4" ref={searchRef}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50" size={16} />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="Search anything..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onFocus={handleSearchFocus}
             className="w-full bg-black/40 border border-panel-border rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-accent transition-colors shadow-inner"
           />
-          
+
           {isSearching && searchTerm.trim() && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-panel border border-panel-border rounded-lg shadow-xl overflow-hidden z-50 max-h-60 overflow-y-auto custom-scrollbar">
               {results.length > 0 ? (
                 <div className="py-2">
                   {results.map((res, i) => (
-                    <div 
-                      key={i} 
+                    <div
+                      key={i}
                       onClick={() => {
                         setIsSearching(false);
                         setSearchTerm('');
@@ -173,8 +173,8 @@ export function Navigation() {
               href={item.href}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300",
-                isActive 
-                  ? "bg-accent/15 text-accent-glow border border-accent/30 shadow-[0_0_20px_rgba(0,194,255,0.15)]" 
+                isActive
+                  ? "bg-accent/15 text-accent-glow border border-accent/30 shadow-[0_0_20px_rgba(0,194,255,0.15)]"
                   : "text-foreground/70 hover:text-foreground hover:bg-white/5 border border-transparent"
               )}
             >
@@ -184,13 +184,13 @@ export function Navigation() {
           );
         })}
       </div>
-      
+
       <div className="p-4 border-t border-panel-border/50 bg-black/20">
         <button
           onClick={() => {
-            if(confirm('Are you sure you want to logout?')) {
-               document.cookie = "auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-               window.location.href = '/login';
+            if (confirm('Are you sure you want to logout?')) {
+              document.cookie = "auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+              window.location.href = '/login';
             }
           }}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 font-medium tracking-wide"
