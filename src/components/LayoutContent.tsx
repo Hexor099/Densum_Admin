@@ -5,12 +5,15 @@ import { Navigation } from "./Navigation";
 import { useStore } from "@/store/useStore";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useNotifications } from "@/hooks/useNotifications";
 
 export function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
   const initializeStore = useStore((state) => state.initializeStore);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useNotifications();
 
   useEffect(() => {
     if (!isLoginPage) {
