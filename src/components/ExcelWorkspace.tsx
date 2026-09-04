@@ -449,7 +449,7 @@ export function ExcelWorkspace() {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           <button onClick={() => startEditing(row)} className="p-1.5 text-blue-400 hover:text-blue-300 rounded hover:bg-blue-400/10" title="Edit Row">
                             <Edit2 size={16} />
                           </button>

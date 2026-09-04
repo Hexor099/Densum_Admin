@@ -139,8 +139,10 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allSheetsData, doctorsData]);
 
-  const currentData = allSheetsData && currentSheet ? allSheetsData[currentSheet] : null;
-  const enhancedData = currentSheet ? allEnhancedData[currentSheet] : null;
+  const currentData = allSheetsData && currentSheet && currentSheet !== 'All Doctors' ? allSheetsData[currentSheet] : null;
+  const enhancedData = currentSheet === 'All Doctors' 
+    ? Object.values(allEnhancedData).flat()
+    : (currentSheet ? allEnhancedData[currentSheet] : null);
 
   // Helper to extract month-year from date string
   const getMonthYear = (dateString: string) => {
@@ -220,6 +222,10 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   }, { totalFilteredUnits: 0, totalFilteredAmount: 0 }) : { totalFilteredUnits: 0, totalFilteredAmount: 0 };
 
   const handleGeneratePDF = async () => {
+    if (currentSheet === 'All Doctors') {
+      toast.error("Cannot generate a single invoice for 'All Doctors'. Please select a specific doctor.");
+      return;
+    }
     if (selectedMonth === 'All') {
       toast.error("Please select a specific Billing Month first. You cannot generate a bill for 'All Months'.");
       return;
@@ -363,29 +369,18 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         <div className="mb-4 flex flex-col md:flex-row gap-4 animate-in fade-in duration-300 relative z-20">
           <div className="flex-1 flex flex-col gap-4">
             <div>
-              <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Search Doctor Sheet:</label>
+              <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Select Doctor Sheet:</label>
               <div className="relative max-w-md">
-                <svg 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none" 
-                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                <select 
+                  value={currentSheet}
+                  onChange={e => setCurrentSheet(e.target.value)}
+                  className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm appearance-none"
                 >
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-                <input 
-                  type="text" 
-                  placeholder={currentSheet || "Type doctor name..."}
-                  onChange={e => {
-                    const q = e.target.value.toLowerCase();
-                    if (!q) return;
-                    // Basic fuzzy search: find first sheet that includes the text
-                    const match = sheetNames.find(n => n.toLowerCase().includes(q));
-                    if (match) {
-                      setCurrentSheet(match);
-                    }
-                  }}
-                  className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm"
-                />
+                  <option value="All Doctors">All Doctors (Summary)</option>
+                  {sheetNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -456,7 +451,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center justify-between mb-4 mt-2">
             <h3 className="font-semibold text-white flex items-center gap-2">
-               {currentSheet ? `Doctor: ${currentSheet}` : "Data Synced"} <span className="text-foreground/50 font-normal">({filteredData.length} rows)</span>
+               {currentSheet === 'All Doctors' ? "All Doctors Summary" : (currentSheet ? `Doctor: ${currentSheet}` : "Data Synced")} <span className="text-foreground/50 font-normal">({filteredData.length} rows)</span>
             </h3>
             <div className="flex gap-3">
 
