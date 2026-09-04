@@ -12,6 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { parseDateString } from '@/lib/utils';
 
 interface DashboardChartsProps {
   data?: Record<string, any[]> | null;
@@ -27,8 +28,8 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
   const extractDate = (row: any): Date | null => {
     const dateKey = Object.keys(row).find(k => k.toLowerCase().includes('date'));
     if (!dateKey || !row[dateKey]) return null;
-    const d = new Date(row[dateKey]);
-    return isNaN(d.getTime()) ? null : d;
+    const d = parseDateString(row[dateKey]);
+    return d.getTime() === 0 ? null : d;
   };
 
   // Compute all available doctors and a chronological list of months
