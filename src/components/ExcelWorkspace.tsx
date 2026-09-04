@@ -151,34 +151,30 @@ export function ExcelWorkspace() {
     if (!entryToSave['Status']) entryToSave['Status'] = 'Active';
 
     let finalSheets: any[] = [];
-    setSheets(prevSheets => {
-      let sheetExists = false;
-      const updatedSheets = prevSheets.map(s => {
-        if (s.name.toLowerCase() === doctorName.toLowerCase()) {
-          sheetExists = true;
-          return { ...s, rowData: [entryToSave, ...s.rowData] };
-        }
-        return s;
-      });
-
-      if (!sheetExists) {
-        const newSheet = {
-          id: `sheet_${Date.now()}`,
-          name: doctorName,
-          rowData: [entryToSave]
-        };
-        setActiveSheetId(newSheet.id);
-        finalSheets = [...updatedSheets, newSheet];
-        return finalSheets;
+    let sheetExists = false;
+    const updatedSheets = sheets.map(s => {
+      if (s.name.toLowerCase() === doctorName.toLowerCase()) {
+        sheetExists = true;
+        return { ...s, rowData: [entryToSave, ...s.rowData] };
       }
+      return s;
+    });
 
+    if (!sheetExists) {
+      const newSheet = {
+        id: `sheet_${Date.now()}`,
+        name: doctorName,
+        rowData: [entryToSave]
+      };
+      setActiveSheetId(newSheet.id);
+      finalSheets = [...updatedSheets, newSheet];
+    } else {
       const targetSheet = updatedSheets.find(s => s.name.toLowerCase() === doctorName.toLowerCase());
       if (targetSheet) setActiveSheetId(targetSheet.id);
-
       finalSheets = updatedSheets;
-      return finalSheets;
-    });
+    }
     
+    setSheets(finalSheets);
     setIsModalOpen(false);
     await saveWorkspaceData(finalSheets);
   };
@@ -194,21 +190,19 @@ export function ExcelWorkspace() {
   };
 
   const saveEditing = async () => {
-    let finalSheets: any[] = [];
-    setSheets(prev => {
-      finalSheets = prev.map(sheet => {
-        if (sheet.id === activeSheetId) {
-          const newData = [...sheet.rowData];
-          const index = newData.indexOf(editingRow);
-          if (index !== -1) {
-            newData[index] = editFormData;
-          }
-          return { ...sheet, rowData: newData };
+    const finalSheets = sheets.map(sheet => {
+      if (sheet.id === activeSheetId) {
+        const newData = [...sheet.rowData];
+        const index = newData.indexOf(editingRow);
+        if (index !== -1) {
+          newData[index] = editFormData;
         }
-        return sheet;
-      });
-      return finalSheets;
+        return { ...sheet, rowData: newData };
+      }
+      return sheet;
     });
+    
+    setSheets(finalSheets);
     setEditingRow(null);
     setEditFormData({});
     toast.success("Entry updated!");
@@ -217,17 +211,15 @@ export function ExcelWorkspace() {
 
   const deleteRow = async (rowToDelete: any) => {
     if (!confirm("Are you sure you want to delete this entry?")) return;
-    let finalSheets: any[] = [];
-    setSheets(prev => {
-      finalSheets = prev.map(sheet => {
-        if (sheet.id === activeSheetId) {
-          const newData = sheet.rowData.filter(r => r !== rowToDelete);
-          return { ...sheet, rowData: newData };
-        }
-        return sheet;
-      });
-      return finalSheets;
+    const finalSheets = sheets.map(sheet => {
+      if (sheet.id === activeSheetId) {
+        const newData = sheet.rowData.filter(r => r !== rowToDelete);
+        return { ...sheet, rowData: newData };
+      }
+      return sheet;
     });
+    
+    setSheets(finalSheets);
     toast.success("Entry deleted!");
     await saveWorkspaceData(finalSheets);
   };
