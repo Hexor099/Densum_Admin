@@ -19,20 +19,28 @@ export default function NotificationCenter() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const triggerTestNotification = () => {
+    const title = "Test Notification 🚀";
+    const options = {
+      body: "This is a trial notification from Densum Digital Lab!",
+      icon: "/app-logo.png",
+    };
+
+    const send = () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification(title, options);
+        });
+      } else {
+        new Notification(title, options);
+      }
+    };
+
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === "granted") {
-        new Notification("Test Notification 🚀", {
-          body: "This is a trial notification from Densum Digital Lab!",
-          icon: "/app-logo.png",
-        });
+        send();
       } else if (Notification.permission !== "denied") {
         Notification.requestPermission().then(permission => {
-          if (permission === "granted") {
-            new Notification("Test Notification 🚀", {
-              body: "This is a trial notification from Densum Digital Lab!",
-              icon: "/app-logo.png",
-            });
-          }
+          if (permission === "granted") send();
         });
       }
     } else {

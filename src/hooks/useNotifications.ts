@@ -51,10 +51,19 @@ export function useNotifications() {
                 const message = `Order for ${row['Patient Name']} (Doctor: ${doctorName}) is pending delivery! (${hoursPast}h past deadline)`;
                 
                 try {
-                  new Notification(title, {
-                    body: message,
-                    icon: '/app-logo.png', // Assuming app-logo.png exists
-                  });
+                  if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then((registration) => {
+                      registration.showNotification(title, {
+                        body: message,
+                        icon: '/app-logo.png',
+                      });
+                    });
+                  } else {
+                    new Notification(title, {
+                      body: message,
+                      icon: '/app-logo.png',
+                    });
+                  }
                   localStorage.setItem(storageKey, hoursPast.toString());
                 } catch (e) {
                   console.error("Failed to send notification", e);
