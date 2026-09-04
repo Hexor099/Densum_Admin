@@ -10,7 +10,7 @@ import { TrendingUp, AlertTriangle, AlertCircle, Banknote } from "lucide-react";
 import { useStore } from '@/store/useStore';
 
 export default function Home() {
-  const [dashboardData, setDashboardData] = useState<Record<string, any[]> | null>(null);
+  // Dashboard data is now derived from the global ledger store instead of local state
   const [kpis, setKpis] = useState({
     totalOutstanding: 0,
     thisMonthRevenue: 0,
@@ -132,6 +132,31 @@ export default function Home() {
     }
   }, [isInitialized, doctors, ledger, catalog, settings, expenses, refreshExpenses]);
 
+  const dashboardData = useMemo(() => {
+    if (!isInitialized || !ledger) return null;
+    const data: Record<string, any[]> = {};
+    
+    Object.keys(ledger).forEach(docId => {
+      const txs = Array.isArray(ledger[docId]) ? ledger[docId] : Object.values(ledger[docId] || {});
+      const validTxs = txs.filter((tx: any) => 
+        tx.type === 'Charge' || tx.type === 'Invoice' || tx.type === 'Invoice Generated' || tx.type === 'Bill'
+      ).map((tx: any) => ({
+        Date: tx.date,
+        Total: Number(tx.amount) || 0
+      }));
+      
+      if (validTxs.length > 0) {
+        const docName = doctors[docId]?.name || docId;
+        if (!data[docName]) {
+          data[docName] = [];
+        }
+        data[docName] = data[docName].concat(validTxs);
+      }
+    });
+    
+    return Object.keys(data).length > 0 ? data : null;
+  }, [ledger, doctors, isInitialized]);
+
   const topDoctors = useMemo(() => {
     if (!dashboardData) return [];
     
@@ -150,7 +175,7 @@ export default function Home() {
 
   // Fallback UI if no data is present yet
   const displayDoctors = topDoctors.length > 0 ? topDoctors : [
-    { name: "Upload Excel to see data", cases: 0, revenue: "₹0" }
+    { name: "No doctor data available", cases: 0, revenue: "₹0" }
   ];
 
   return (
@@ -228,7 +253,7 @@ export default function Home() {
         </div>
       </div>
 
-      <ExcelUploader onDataProcessed={setDashboardData} />
+      <ExcelUploader />
     </div>
   );
 }

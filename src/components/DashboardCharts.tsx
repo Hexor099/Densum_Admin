@@ -172,7 +172,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
   if (!data) {
     return (
       <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[400px] flex items-center justify-center text-foreground/50">
-        Upload Excel data to view analytics.
+        No analytics data available.
       </div>
     );
   }
