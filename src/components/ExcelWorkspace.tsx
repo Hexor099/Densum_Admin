@@ -42,6 +42,7 @@ export function ExcelWorkspace() {
               
               if (!r['Delivered Date']) r['Delivered Date'] = 'Not Delivered';
               if (!r['Status']) r['Status'] = 'Active';
+              if (!r._id) r._id = Math.random().toString(36).substring(2, 11);
               
               return r;
             });
@@ -149,6 +150,7 @@ export function ExcelWorkspace() {
     const entryToSave = { ...entry };
     if (!entryToSave['Delivered Date']) entryToSave['Delivered Date'] = 'Not Delivered';
     if (!entryToSave['Status']) entryToSave['Status'] = 'Active';
+    if (!entryToSave._id) entryToSave._id = Math.random().toString(36).substring(2, 11);
 
     let finalSheets: any[] = [];
     let sheetExists = false;
@@ -193,9 +195,13 @@ export function ExcelWorkspace() {
     const finalSheets = sheets.map(sheet => {
       if (sheet.id === activeSheetId) {
         const newData = [...sheet.rowData];
-        const index = newData.indexOf(editingRow);
+        const index = newData.findIndex(r => r._id === editingRow._id);
         if (index !== -1) {
           newData[index] = editFormData;
+        } else {
+          // Fallback if no _id
+          const fallbackIndex = newData.indexOf(editingRow);
+          if (fallbackIndex !== -1) newData[fallbackIndex] = editFormData;
         }
         return { ...sheet, rowData: newData };
       }
@@ -213,7 +219,7 @@ export function ExcelWorkspace() {
     if (!confirm("Are you sure you want to delete this entry?")) return;
     const finalSheets = sheets.map(sheet => {
       if (sheet.id === activeSheetId) {
-        const newData = sheet.rowData.filter(r => r !== rowToDelete);
+        const newData = sheet.rowData.filter(r => r._id ? r._id !== rowToDelete._id : r !== rowToDelete);
         return { ...sheet, rowData: newData };
       }
       return sheet;
@@ -408,7 +414,14 @@ export function ExcelWorkspace() {
                       {isEditing ? (
                         <select 
                           value={editFormData['Status'] || 'Active'} 
-                          onChange={(e) => setEditFormData({...editFormData, 'Status': e.target.value})} 
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            const updates: any = { Status: newStatus };
+                            if (newStatus === 'Delivered' && (!editFormData['Delivered Date'] || editFormData['Delivered Date'] === 'Not Delivered')) {
+                                updates['Delivered Date'] = new Date().toISOString().split('T')[0];
+                            }
+                            setEditFormData({...editFormData, ...updates});
+                          }} 
                           className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full"
                         >
                           <option value="Active">Active</option>

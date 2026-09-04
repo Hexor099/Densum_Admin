@@ -300,7 +300,13 @@ export function AddEntryModal({
               <label className="block text-sm font-semibold text-white/70 mb-1">Status</label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setStatus(val);
+                  if (val === 'Delivered' && !deliveredDate) {
+                    setDeliveredDate(new Date().toISOString().split('T')[0]);
+                  }
+                }}
                 className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent appearance-none"
               >
                 <option value="Active">Active</option>
