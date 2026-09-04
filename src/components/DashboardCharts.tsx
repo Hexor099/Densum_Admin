@@ -12,7 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { parseDateString } from '@/lib/utils';
+import { parseDateString, getVal } from '@/lib/utils';
 
 interface DashboardChartsProps {
   data?: Record<string, any[]> | null;
@@ -26,9 +26,10 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
 
   // Helper to extract date safely from any row
   const extractDate = (row: any): Date | null => {
-    const dateKey = Object.keys(row).find(k => k.toLowerCase().includes('date'));
-    if (!dateKey || !row[dateKey]) return null;
-    const d = parseDateString(row[dateKey]);
+    // Prioritize received date over delivered date
+    const dateVal = getVal(row, ['received date', 'date', 'order date']);
+    if (!dateVal) return null;
+    const d = parseDateString(dateVal);
     return d.getTime() === 0 ? null : d;
   };
 
