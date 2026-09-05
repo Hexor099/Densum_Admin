@@ -17,8 +17,8 @@ export async function syncExcelData(formData: FormData) {
     const sanitizedSheetNames: string[] = [];
     
     for (const rawSheetName of workbook.SheetNames) {
-      // Firebase keys cannot contain . # $ [ ]
-      const sheetName = rawSheetName.replace(/\./g, ' ').replace(/[#$\[\]]/g, '');
+      // Firebase keys cannot contain . # $ [ ] /
+      const sheetName = rawSheetName.replace(/\./g, ' ').replace(/[#$\[\]\/]/g, '');
       sanitizedSheetNames.push(sheetName);
 
       const worksheet = workbook.Sheets[rawSheetName];

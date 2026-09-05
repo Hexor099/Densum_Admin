@@ -60,6 +60,13 @@ export default function LedgerPage() {
     loadExcelMaterials();
   }, []);
 
+  // TEMPORARY FIX FOR DR MOHD ASEEL
+  useEffect(() => {
+    import('@/lib/firebase').then(({ writeData }) => {
+      writeData('doctors/Dr Mohd Aseel/balance', 0).then(() => refreshDoctors());
+    });
+  }, []);
+
   useEffect(() => {
     if (Object.keys(doctors).length > 0 && !selectedDocId) {
       setSelectedDocId(Object.keys(doctors)[0]);
@@ -351,6 +358,23 @@ export default function LedgerPage() {
     await refreshDoctors();
   };
 
+  const addNewDoctor = async () => {
+    const docName = prompt("Enter the name of the new doctor:");
+    if (!docName || !docName.trim()) return;
+    
+    const safeName = docName.trim().replace(/[\.#$\[\]\/]/g, '');
+    
+    if (doctors[safeName]) {
+      toast.error("Doctor already exists!");
+      return;
+    }
+    
+    await writeData(`doctors/${safeName}`, { balance: 0, prices: {} });
+    await refreshDoctors();
+    setSelectedDocId(safeName);
+    toast.success(`${safeName} added successfully!`);
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -380,11 +404,19 @@ export default function LedgerPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Doctors List */}
-        <div className="bg-panel rounded-xl border border-panel-border p-4 shadow-lg lg:col-span-1 h-[600px] overflow-y-auto custom-scrollbar">
-          <h2 className="text-lg font-bold mb-4 text-white flex items-center gap-2">
-            <User size={18} className="text-accent" /> Doctors
-          </h2>
-          <div className="space-y-2">
+        <div className="bg-panel rounded-xl border border-panel-border p-4 shadow-lg lg:col-span-1 h-[600px] overflow-y-auto custom-scrollbar flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <User size={18} className="text-accent" /> Doctors
+            </h2>
+            <button 
+              onClick={addNewDoctor}
+              className="px-2 py-1 bg-accent/20 text-accent text-xs font-bold rounded hover:bg-accent/30 transition-all flex items-center gap-1"
+            >
+              <Plus size={14} /> Add
+            </button>
+          </div>
+          <div className="space-y-2 flex-1">
             {Object.keys(doctors).map(docName => {
               const doc = doctors[docName];
               const balance = Number(doc.balance) || 0;
