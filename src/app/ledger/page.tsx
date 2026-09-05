@@ -284,6 +284,37 @@ export default function LedgerPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const fixAllBalances = async () => {
+    if (!confirm("Recalculate all balances from the ledger history?")) return;
+    try {
+      const ledgers = await fetchData('ledger');
+      const allDoctors = await fetchData('doctors');
+      if (!ledgers || !allDoctors) return;
+
+      let count = 0;
+      for (const docId of Object.keys(allDoctors)) {
+        const docLedger = ledgers[docId] || {};
+        const transactions = Array.isArray(docLedger) ? docLedger : Object.values(docLedger);
+        
+        let trueBalance = 0;
+        for (const tx of transactions) {
+          trueBalance += (Number((tx as any).amount) || 0);
+        }
+        
+        const currentBalance = Number(allDoctors[docId].balance) || 0;
+        if (Math.abs(trueBalance - currentBalance) > 0.01) {
+          await writeData(`doctors/${docId}/balance`, trueBalance);
+          count++;
+        }
+      }
+      await refreshDoctors();
+      toast.success(`Fixed corrupted balances for ${count} doctors.`);
+    } catch (e) {
+      toast.error("Failed to fix balances.");
+      console.error(e);
+    }
+  };
+
   const cancelEdit = () => {
     setEditingTxId(null);
     setEditingDate(null);
@@ -323,10 +354,19 @@ export default function LedgerPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Doctor Profiles & Ledger</h1>
-          <p className="text-foreground/70">Manage custom pricing, view ledger, and record payments.</p>
-        </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-white mb-2">Doctor Profiles & Ledger</h1>
+                  <p className="text-foreground/70">Manage custom pricing, view ledger, and record payments.</p>
+                </div>
+                <button 
+                  onClick={fixAllBalances}
+                  className="px-3 py-1.5 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded hover:bg-yellow-500/30 border border-yellow-500/30"
+                  title="Click to recalculate all corrupted balances"
+                >
+                  Fix Balances
+                </button>
+              </div>
         <button 
           onClick={handleBulkWhatsApp}
           disabled={isSendingWA}
