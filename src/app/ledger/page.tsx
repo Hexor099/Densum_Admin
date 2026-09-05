@@ -187,53 +187,56 @@ export default function LedgerPage() {
     const isReducer = txType === 'Payment' || txType === 'Credit Note';
     const txAmount = isReducer ? -amount : amount;
     
-    const { runTransaction, ref } = await import('firebase/database');
-    const { db } = await import('@/lib/firebase');
-    
-    if (editingTxId) {
-      // Calculate delta to apply to balance
-      const balanceDelta = txAmount - editingOriginalAmount;
-      
-      const updatedTx = {
-        id: editingTxId,
-        date: editingDate || new Date().toISOString().split('T')[0],
-        type: txType,
-        amount: txAmount,
-        description: `Manual ${txType}${refNumber ? ` (Ref: ${refNumber})` : ''}`,
-        paymentMode: txType === 'Payment' ? paymentMode : null,
-        refNumber: refNumber || null
-      };
+    try {
+      if (editingTxId) {
+        // Calculate delta to apply to balance
+        const balanceDelta = txAmount - editingOriginalAmount;
+        
+        const updatedTx = {
+          id: editingTxId,
+          date: editingDate || new Date().toISOString().split('T')[0],
+          type: txType,
+          amount: txAmount,
+          description: `Manual ${txType}${refNumber ? ` (Ref: ${refNumber})` : ''}`,
+          paymentMode: txType === 'Payment' ? paymentMode : null,
+          refNumber: refNumber || null
+        };
 
-      await runTransaction(ref(db, `ledger/${selectedDocId}`), (currentList) => {
-        if (!currentList) return currentList;
-        const list = Array.isArray(currentList) ? currentList : Object.values(currentList);
-        return list.map((t: any) => t.id === editingTxId ? updatedTx : t);
-      });
-      
-      if (balanceDelta !== 0) {
-        await atomicIncrement(`doctors/${selectedDocId}/balance`, balanceDelta);
+        const currentList = await fetchData(`ledger/${selectedDocId}`);
+        if (currentList) {
+          const list = Array.isArray(currentList) ? currentList : Object.values(currentList);
+          const newList = list.map((t: any) => t.id === editingTxId ? updatedTx : t);
+          await writeData(`ledger/${selectedDocId}`, newList);
+        }
+        
+        if (balanceDelta !== 0) {
+          await atomicIncrement(`doctors/${selectedDocId}/balance`, balanceDelta);
+        }
+        
+        toast.success(`Updated transaction for ${selectedDocId}`);
+        setEditingTxId(null);
+        setEditingDate(null);
+        setEditingOriginalAmount(0);
+      } else {
+        const newTransaction = {
+          id: generateId(),
+          date: new Date().toISOString().split('T')[0],
+          type: txType,
+          amount: txAmount,
+          description: `Manual ${txType}${refNumber ? ` (Ref: ${refNumber})` : ''}`,
+          paymentMode: txType === 'Payment' ? paymentMode : null,
+          refNumber: refNumber || null
+        };
+
+        // Save to Firebase atomically
+        const { appendToList } = await import('@/lib/firebase');
+        await appendToList(`ledger/${selectedDocId}`, newTransaction);
+        await atomicIncrement(`doctors/${selectedDocId}/balance`, txAmount);
+        toast.success(`Recorded ${txType} of ₹${amount} for ${selectedDocId}`);
       }
-      
-      toast.success(`Updated transaction for ${selectedDocId}`);
-      setEditingTxId(null);
-      setEditingDate(null);
-      setEditingOriginalAmount(0);
-    } else {
-      const newTransaction = {
-        id: generateId(),
-        date: new Date().toISOString().split('T')[0],
-        type: txType,
-        amount: txAmount,
-        description: `Manual ${txType}${refNumber ? ` (Ref: ${refNumber})` : ''}`,
-        paymentMode: txType === 'Payment' ? paymentMode : null,
-        refNumber: refNumber || null
-      };
-
-      // Save to Firebase atomically
-      const { appendToList } = await import('@/lib/firebase');
-      await appendToList(`ledger/${selectedDocId}`, newTransaction);
-      await atomicIncrement(`doctors/${selectedDocId}/balance`, txAmount);
-      toast.success(`Recorded ${txType} of ₹${amount} for ${selectedDocId}`);
+    } catch (e: any) {
+      console.error("Error recording transaction:", e);
+      toast.error("Failed to process transaction. See console for details.");
     }
     
     await refreshLedger();
@@ -246,21 +249,25 @@ export default function LedgerPage() {
   const deleteTransaction = async (txId: string, amount: number) => {
     if (!confirm("Are you sure you want to delete this transaction? This will reverse its effect on the balance.")) return;
     
-    // Reverse the balance
-    await atomicIncrement(`doctors/${selectedDocId}/balance`, -amount);
-    
-    // Remove from ledger
-    const { runTransaction, ref } = await import('firebase/database');
-    const { db } = await import('@/lib/firebase');
-    await runTransaction(ref(db, `ledger/${selectedDocId}`), (currentList) => {
-      if (!currentList) return currentList;
-      const list = Array.isArray(currentList) ? currentList : Object.values(currentList);
-      return list.filter((t: any) => t.id !== txId);
-    });
-    
-    await refreshLedger();
-    await refreshDoctors();
-    toast.success("Transaction deleted successfully");
+    try {
+      // Reverse the balance
+      await atomicIncrement(`doctors/${selectedDocId}/balance`, -amount);
+      
+      // Remove from ledger
+      const currentList = await fetchData(`ledger/${selectedDocId}`);
+      if (currentList) {
+        const list = Array.isArray(currentList) ? currentList : Object.values(currentList);
+        const newList = list.filter((t: any) => t.id !== txId);
+        await writeData(`ledger/${selectedDocId}`, newList);
+      }
+      
+      await refreshLedger();
+      await refreshDoctors();
+      toast.success("Transaction deleted successfully");
+    } catch (e: any) {
+      console.error("Error deleting transaction:", e);
+      toast.error("Failed to delete transaction. See console for details.");
+    }
   };
 
   const handleEditTx = (tx: any) => {
