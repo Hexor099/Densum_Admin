@@ -21,6 +21,9 @@ export default function LedgerPage() {
   const [uniqueMaterials, setUniqueMaterials] = useState<string[]>([]);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
+  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [editingOriginalAmount, setEditingOriginalAmount] = useState<number>(0);
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -184,25 +187,100 @@ export default function LedgerPage() {
     const isReducer = txType === 'Payment' || txType === 'Credit Note';
     const txAmount = isReducer ? -amount : amount;
     
-    const newTransaction = {
-      id: generateId(),
-      date: new Date().toISOString().split('T')[0],
-      type: txType,
-      amount: txAmount,
-      description: `Manual ${txType}${refNumber ? ` (Ref: ${refNumber})` : ''}`,
-      paymentMode: txType === 'Payment' ? paymentMode : null,
-      refNumber: refNumber || null
-    };
+    const { runTransaction, ref } = await import('firebase/database');
+    const { db } = await import('@/lib/firebase');
+    
+    if (editingTxId) {
+      // Calculate delta to apply to balance
+      const balanceDelta = txAmount - editingOriginalAmount;
+      
+      const updatedTx = {
+        id: editingTxId,
+        date: editingDate || new Date().toISOString().split('T')[0],
+        type: txType,
+        amount: txAmount,
+        description: `Manual ${txType}${refNumber ? ` (Ref: ${refNumber})` : ''}`,
+        paymentMode: txType === 'Payment' ? paymentMode : null,
+        refNumber: refNumber || null
+      };
 
-    // Save to Firebase atomically
-    const { appendToList } = await import('@/lib/firebase');
-    await appendToList(`ledger/${selectedDocId}`, newTransaction);
-    await atomicIncrement(`doctors/${selectedDocId}/balance`, txAmount);
+      await runTransaction(ref(db, `ledger/${selectedDocId}`), (currentList) => {
+        if (!currentList) return currentList;
+        const list = Array.isArray(currentList) ? currentList : Object.values(currentList);
+        return list.map((t: any) => t.id === editingTxId ? updatedTx : t);
+      });
+      
+      if (balanceDelta !== 0) {
+        await atomicIncrement(`doctors/${selectedDocId}/balance`, balanceDelta);
+      }
+      
+      toast.success(`Updated transaction for ${selectedDocId}`);
+      setEditingTxId(null);
+      setEditingDate(null);
+      setEditingOriginalAmount(0);
+    } else {
+      const newTransaction = {
+        id: generateId(),
+        date: new Date().toISOString().split('T')[0],
+        type: txType,
+        amount: txAmount,
+        description: `Manual ${txType}${refNumber ? ` (Ref: ${refNumber})` : ''}`,
+        paymentMode: txType === 'Payment' ? paymentMode : null,
+        refNumber: refNumber || null
+      };
+
+      // Save to Firebase atomically
+      const { appendToList } = await import('@/lib/firebase');
+      await appendToList(`ledger/${selectedDocId}`, newTransaction);
+      await atomicIncrement(`doctors/${selectedDocId}/balance`, txAmount);
+      toast.success(`Recorded ${txType} of ₹${amount} for ${selectedDocId}`);
+    }
     
     await refreshLedger();
     await refreshDoctors();
     
-    toast.success(`Recorded ${txType} of ₹${amount} for ${selectedDocId}`);
+    setPaymentAmount('');
+    setRefNumber('');
+  };
+
+  const deleteTransaction = async (txId: string, amount: number) => {
+    if (!confirm("Are you sure you want to delete this transaction? This will reverse its effect on the balance.")) return;
+    
+    // Reverse the balance
+    await atomicIncrement(`doctors/${selectedDocId}/balance`, -amount);
+    
+    // Remove from ledger
+    const { runTransaction, ref } = await import('firebase/database');
+    const { db } = await import('@/lib/firebase');
+    await runTransaction(ref(db, `ledger/${selectedDocId}`), (currentList) => {
+      if (!currentList) return currentList;
+      const list = Array.isArray(currentList) ? currentList : Object.values(currentList);
+      return list.filter((t: any) => t.id !== txId);
+    });
+    
+    await refreshLedger();
+    await refreshDoctors();
+    toast.success("Transaction deleted successfully");
+  };
+
+  const handleEditTx = (tx: any) => {
+    setTxType(tx.type as any);
+    setPaymentAmount(Math.abs(tx.amount).toString());
+    setRefNumber(tx.refNumber || '');
+    if (tx.paymentMode) setPaymentMode(tx.paymentMode);
+    
+    setEditingTxId(tx.id);
+    setEditingDate(tx.date);
+    setEditingOriginalAmount(tx.amount);
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingTxId(null);
+    setEditingDate(null);
+    setEditingOriginalAmount(0);
     setPaymentAmount('');
     setRefNumber('');
   };
@@ -336,10 +414,16 @@ export default function LedgerPage() {
             {/* Payment and Pricing Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Transaction Card */}
-              <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg flex flex-col">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <DollarSign size={18} className="text-accent" /> Manual Ledger Entry
-                </h3>
+              <div className={`bg-panel rounded-xl border p-6 shadow-lg flex flex-col transition-all ${editingTxId ? 'border-accent shadow-[0_0_15px_rgba(0,194,255,0.2)]' : 'border-panel-border'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <DollarSign size={18} className="text-accent" /> 
+                    {editingTxId ? 'Edit Transaction' : 'Manual Ledger Entry'}
+                  </h3>
+                  {editingTxId && (
+                    <button onClick={cancelEdit} className="text-xs text-red-400 hover:underline">Cancel Edit</button>
+                  )}
+                </div>
                 
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
@@ -413,12 +497,14 @@ export default function LedgerPage() {
                 <button 
                   onClick={recordTransaction}
                   className={`w-full py-2.5 font-bold rounded-lg transition-all shadow-sm border ${
-                    txType === 'Payment' || txType === 'Credit Note'
-                      ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/30'
-                      : 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30'
+                    editingTxId 
+                      ? 'bg-accent/20 text-accent hover:bg-accent/30 border-accent/30'
+                      : txType === 'Payment' || txType === 'Credit Note'
+                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/30'
+                        : 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30'
                   }`}
                 >
-                  Record {txType}
+                  {editingTxId ? 'Update Transaction' : `Record ${txType}`}
                 </button>
               </div>
 
@@ -524,13 +610,14 @@ export default function LedgerPage() {
                       <th className="px-6 py-4">Description</th>
                       <th className="px-6 py-4">Type</th>
                       <th className="px-6 py-4 text-right">Amount (₹)</th>
+                      <th className="px-4 py-4 text-right w-[100px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTransactions.map((tx: any) => {
                       const isReducer = tx.type === 'Payment' || tx.type === 'Credit Note';
                       return (
-                      <tr key={tx.id || tx.date} className="border-b border-panel-border/30 hover:bg-white/5 transition-colors">
+                      <tr key={tx.id || tx.date} className="border-b border-panel-border/30 hover:bg-white/5 transition-colors group">
                         <td className="px-6 py-4 whitespace-nowrap text-foreground/80">{tx.date}</td>
                         <td className="px-6 py-4 font-medium">
                           {tx.description}
@@ -547,6 +634,24 @@ export default function LedgerPage() {
                         </td>
                         <td className="px-6 py-4 text-right font-bold tracking-wide">
                           {tx.amount > 0 ? tx.amount.toLocaleString() : `(${Math.abs(tx.amount).toLocaleString()})`}
+                        </td>
+                        <td className="px-4 py-4 text-right whitespace-nowrap">
+                          {tx.id && (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end gap-2">
+                              <button 
+                                onClick={() => handleEditTx(tx)} 
+                                className="text-accent hover:text-accent/80 text-xs font-bold uppercase tracking-wider bg-accent/10 px-2 py-1 rounded"
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => deleteTransaction(tx.id, tx.amount)} 
+                                className="text-red-400 hover:text-red-300 text-xs font-bold uppercase tracking-wider bg-red-400/10 px-2 py-1 rounded"
+                              >
+                                Del
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )})}
