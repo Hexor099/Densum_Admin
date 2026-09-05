@@ -60,6 +60,28 @@ export default function LedgerPage() {
     loadExcelMaterials();
   }, []);
 
+  // Auto-recovery: If a doctor exists in excelData but not in doctors, create them!
+  useEffect(() => {
+    async function recoverMissingDoctors() {
+      const excel = await fetchData('excelData');
+      const docs = await fetchData('doctors');
+      if (excel && docs) {
+        let changed = false;
+        for (const safeSheetName of Object.keys(excel)) {
+          if (!docs[safeSheetName]) {
+            changed = true;
+            await writeData(`doctors/${safeSheetName}`, { balance: 0, prices: {} });
+          }
+        }
+        if (changed) {
+          toast.success("Auto-recovered missing doctors from Workspace!");
+          refreshDoctors();
+        }
+      }
+    }
+    recoverMissingDoctors();
+  }, []);
+
   // TEMPORARY FIX FOR DR MOHD ASEEL
   useEffect(() => {
     import('@/lib/firebase').then(({ writeData }) => {
