@@ -7,6 +7,7 @@ import { fetchData, writeData } from "@/lib/firebase";
 import { AddEntryModal } from "./AddEntryModal";
 import { formatDateForDisplay, parseDateString } from "@/lib/utils";
 import { PalmerCross } from "./PalmerCross";
+import { useStore } from "@/store/useStore";
 
 type DoctorSheet = {
   id: string;
@@ -20,6 +21,7 @@ export function ExcelWorkspace() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { doctors, refreshDoctors } = useStore();
   
   // Inline editing state
   const [editingRow, setEditingRow] = useState<any>(null);
@@ -122,7 +124,7 @@ export function ExcelWorkspace() {
         });
 
         if (validRows.length > 0) {
-          const safeSheetName = sheet.name.replace(/\./g, ' ').replace(/[#$\[\]]/g, '');
+          const safeSheetName = sheet.name.replace(/\./g, ' ').replace(/[#$\[\]\/]/g, '');
           const cleanRowsToSave = validRows.map((row: any) => {
             const r = { ...row };
             delete r['Fitted'];
@@ -137,6 +139,15 @@ export function ExcelWorkspace() {
 
       if (Object.keys(flatData).length > 0) {
         await writeData("excelData", flatData);
+        
+        let changed = false;
+        for (const safeSheetName of Object.keys(flatData)) {
+          if (!doctors[safeSheetName]) {
+            changed = true;
+            await writeData(`doctors/${safeSheetName}`, { balance: 0, prices: {} });
+          }
+        }
+        if (changed) await refreshDoctors();
       }
     } catch (err: any) {
       console.error(err);
