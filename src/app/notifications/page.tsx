@@ -46,7 +46,8 @@ export default function NotificationCenter() {
     Object.entries(storeExcelData || {}).forEach(([doctorName, rows]: [string, any]) => {
       if (Array.isArray(rows)) {
         rows.forEach((row) => {
-          if (!row['Received Date'] || row['Delivered Date'] !== 'Not Delivered' || row['Status'] === 'Delivered') {
+          const isNotDelivered = !row['Delivered Date'] || row['Delivered Date'] === 'Not Delivered' || String(row['Delivered Date']).trim() === '';
+          if (!row['Received Date'] || !isNotDelivered || row['Status'] === 'Delivered') {
             return;
           }
 

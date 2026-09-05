@@ -12,6 +12,7 @@ interface AppState {
   bills: Record<string, any>;
   supplier_ledger: Record<string, any>;
   inventory_history: Record<string, any>;
+  excelData: Record<string, any>;
   isInitialized: boolean;
   
   initializeStore: () => void;
@@ -36,6 +37,7 @@ export const useStore = create<AppState>((set, get) => ({
   bills: {},
   supplier_ledger: {},
   inventory_history: {},
+  excelData: {},
   isInitialized: false,
 
   initializeStore: () => {
@@ -51,6 +53,7 @@ export const useStore = create<AppState>((set, get) => ({
       { key: 'bills', path: 'bills' },
       { key: 'supplier_ledger', path: 'supplier_ledger' },
       { key: 'inventory_history', path: 'inventory_history' },
+      { key: 'excelData', path: 'excelData' },
     ];
 
     paths.forEach(({ key, path }) => {
