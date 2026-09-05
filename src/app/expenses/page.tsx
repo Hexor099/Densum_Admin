@@ -295,11 +295,10 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Log Expense Form */}
-        <div className="xl:col-span-1 space-y-6">
-          <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
-            <h2 className="text-sm sm:text-xl font-bold mb-6 text-white flex items-center gap-2">
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
+          <h2 className="text-sm sm:text-xl font-bold mb-6 text-white flex items-center gap-2">
               <Receipt size={20} className="text-accent" /> Log Expense
             </h2>
             <div className="space-y-4">
@@ -346,10 +345,12 @@ export default function ExpensesPage() {
               </button>
             </div>
           </div>
-          
-          <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
-            <h2 className="text-lg font-bold mb-4 text-white">Expense Breakdown</h2>
-            <div className="h-[250px]">
+        </div>
+        
+        {/* Expense Breakdown */}
+        <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
+          <h2 className="text-lg font-bold mb-4 text-white">Expense Breakdown</h2>
+          <div className="h-[250px]">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -381,11 +382,11 @@ export default function ExpensesPage() {
                 </div>
               )}
             </div>
-          </div>
         </div>
+      </div>
 
-        {/* Expenses List */}
-        <div className="xl:col-span-2 bg-panel rounded-xl border border-panel-border overflow-hidden shadow-lg">
+      {/* Expenses List */}
+      <div className="bg-panel rounded-xl border border-panel-border overflow-hidden shadow-lg mt-6">
           <div className="p-5 border-b border-panel-border/50 bg-black/20 flex items-center justify-between">
             <h3 className="font-bold text-white text-lg flex items-center gap-2">
               <DollarSign size={20} className="text-accent" /> Recent Expenses
@@ -403,7 +404,7 @@ export default function ExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {[...filteredExpenses].reverse().map((expense) => {
+                {[...filteredExpenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((expense) => {
                   const isBill = expense.desc?.includes('(Invoice #');
                   return (
                   <tr 
@@ -441,8 +442,8 @@ export default function ExpensesPage() {
               </tbody>
             </table>
           </div>
+          </div>
         </div>
-      </div>
 
       {/* Bill Image Viewer Modal */}
       {viewingBillImage && (
