@@ -4,6 +4,8 @@ import { useStore } from "@/store/useStore";
 import { useEffect, useState } from "react";
 import { Bell, Clock, AlertCircle } from "lucide-react";
 import { parseDateString, formatDateForDisplay } from "@/lib/utils";
+import { db } from "@/lib/firebase";
+import { ref, set } from "firebase/database";
 
 interface NotificationItem {
   id: string;
@@ -18,33 +20,21 @@ export default function NotificationCenter() {
   const storeExcelData = useStore((state) => (state as any).excelData);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
-  const triggerTestNotification = () => {
-    const title = "Test Notification 🚀";
-    const options = {
-      body: "This is a trial notification from Densum Digital Lab!",
-      icon: "/app-logo.png",
-    };
-
-    const send = () => {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification(title, options);
-        });
-      } else {
-        new Notification(title, options);
+  const triggerTestNotification = async () => {
+    try {
+      // First, try to request permission if not granted
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+          await Notification.requestPermission();
+        }
       }
-    };
 
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "granted") {
-        send();
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-          if (permission === "granted") send();
-        });
-      }
-    } else {
-      alert("Your browser does not support notifications.");
+      // Write to Firebase to trigger on all active clients
+      const testNotifRef = ref(db, 'test_notifications/trigger');
+      await set(testNotifRef, Date.now());
+    } catch (e) {
+      console.error("Failed to trigger global test notification", e);
+      alert("Failed to trigger notification. Please check your connection.");
     }
   };
 

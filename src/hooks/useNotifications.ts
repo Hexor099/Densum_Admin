@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { parseDateString } from "@/lib/utils";
+import { db } from "@/lib/firebase";
+import { ref, onValue } from "firebase/database";
 
 export function useNotifications() {
   const storeExcelData = useStore((state) => (state as any).excelData);
@@ -81,4 +83,45 @@ export function useNotifications() {
 
     return () => clearInterval(interval);
   }, [storeExcelData]);
+
+  // Global Test Notification Listener
+  useEffect(() => {
+    let initialLoad = true;
+    const testNotifRef = ref(db, 'test_notifications/trigger');
+    
+    const unsubscribe = onValue(testNotifRef, (snapshot) => {
+      if (initialLoad) {
+        initialLoad = false;
+        return;
+      }
+      
+      const val = snapshot.val();
+      if (val) {
+        const title = "Test Notification 🚀";
+        const message = "This is a trial notification from Densum Digital Lab!";
+        
+        try {
+          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then((registration) => {
+                registration.showNotification(title, {
+                  body: message,
+                  icon: '/app-logo.png',
+                });
+              });
+            } else {
+              new Notification(title, {
+                body: message,
+                icon: '/app-logo.png',
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Failed to send test notification", e);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 }
