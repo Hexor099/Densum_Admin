@@ -35,10 +35,11 @@ export function useNotifications() {
       const pendingOrders: Array<{ row: any, doctorName: string, hoursPast: number, storageKey: string }> = [];
 
       Object.entries(storeExcelData || {}).forEach(([doctorName, rows]: [string, any]) => {
-        if (Array.isArray(rows)) {
-          rows.forEach((row) => {
+        const rowArray = Array.isArray(rows) ? rows : Object.values(rows || {});
+        if (rowArray.length > 0) {
+          rowArray.forEach((row: any) => {
             const isNotDelivered = !row['Delivered Date'] || row['Delivered Date'] === 'Not Delivered' || String(row['Delivered Date']).trim() === '';
-            if (!row['Received Date'] || !isNotDelivered || row['Status'] === 'Delivered') {
+            if (!row || !row['Received Date'] || !isNotDelivered || row['Status'] === 'Delivered') {
               return;
             }
 
