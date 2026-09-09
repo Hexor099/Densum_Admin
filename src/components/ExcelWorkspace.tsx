@@ -157,18 +157,23 @@ export function ExcelWorkspace() {
     }
   };
 
-  const handleSaveEntry = async (doctorName: string, entry: any) => {
-    const entryToSave = { ...entry };
-    if (!entryToSave['Delivered Date']) entryToSave['Delivered Date'] = 'Not Delivered';
-    if (!entryToSave['Status']) entryToSave['Status'] = 'Active';
-    if (!entryToSave._id) entryToSave._id = Math.random().toString(36).substring(2, 11);
+  const handleSaveEntry = async (doctorName: string, payload: any | any[]) => {
+    const entriesToSave = Array.isArray(payload) ? payload : [payload];
+    
+    const processedEntries = entriesToSave.map(entry => {
+      const e = { ...entry };
+      if (!e['Delivered Date']) e['Delivered Date'] = 'Not Delivered';
+      if (!e['Status']) e['Status'] = 'Active';
+      if (!e._id) e._id = Math.random().toString(36).substring(2, 11);
+      return e;
+    });
 
     let finalSheets: any[] = [];
     let sheetExists = false;
     const updatedSheets = sheets.map(s => {
       if (s.name.toLowerCase() === doctorName.toLowerCase()) {
         sheetExists = true;
-        return { ...s, rowData: [entryToSave, ...s.rowData] };
+        return { ...s, rowData: [...processedEntries, ...s.rowData] };
       }
       return s;
     });
@@ -177,7 +182,7 @@ export function ExcelWorkspace() {
       const newSheet = {
         id: `sheet_${Date.now()}`,
         name: doctorName,
-        rowData: [entryToSave]
+        rowData: processedEntries
       };
       setActiveSheetId(newSheet.id);
       finalSheets = [...updatedSheets, newSheet];

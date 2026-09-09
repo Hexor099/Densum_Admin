@@ -33,13 +33,19 @@ export function AddEntryModal({
   const [receivedDate, setReceivedDate] = useState("");
   const [deliveredDate, setDeliveredDate] = useState("");
   const [patientName, setPatientName] = useState("");
-  const [toothNo, setToothNo] = useState("");
-  const [workMaterial, setWorkMaterial] = useState("");
-  const [units, setUnits] = useState("");
+  
+  interface WorkItem {
+    toothNo: string;
+    workMaterial: string;
+    units: string;
+  }
+  const [workItems, setWorkItems] = useState<WorkItem[]>([{ toothNo: "", workMaterial: "", units: "" }]);
+  
   const [status, setStatus] = useState("Active");
 
   const [materialSuggestions, setMaterialSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,6 +63,8 @@ export function AddEntryModal({
       setReceivedDate(today);
       setDeliveredDate(""); // Clear by default
       setStatus("Active");
+      setWorkItems([{ toothNo: "", workMaterial: "", units: "" }]);
+      setActiveSuggestionIndex(null);
 
       // Extract existing materials from doctors' prices to populate suggestions immediately
       const defaultMaterials = new Set<string>();
@@ -113,34 +121,36 @@ export function AddEntryModal({
       return;
     }
 
-    if (!units || isNaN(Number(units))) {
-      toast.error("Please enter a valid number of units.");
-      return;
+    for (const item of workItems) {
+      if (!item.units || isNaN(Number(item.units))) {
+        toast.error("Please enter a valid number of units for all work materials.");
+        return;
+      }
+      if (!item.workMaterial.trim()) {
+        toast.error("Please specify the work material for all items.");
+        return;
+      }
+      if (item.workMaterial.trim() && !materialSuggestions.includes(item.workMaterial.trim())) {
+        await appendToList("settings/work_materials", item.workMaterial.trim());
+        setMaterialSuggestions((prev) => [...prev, item.workMaterial.trim()]);
+      }
     }
 
-    // Check if work material is new
-    if (workMaterial.trim() && !materialSuggestions.includes(workMaterial.trim())) {
-      await appendToList("settings/work_materials", workMaterial.trim());
-      setMaterialSuggestions((prev) => [...prev, workMaterial.trim()]);
-    }
-
-    const entry = {
+    const entries = workItems.map(item => ({
       "Received Date": receivedDate,
       "Delivered Date": deliveredDate,
       "Patient Name": patientName,
-      "Tooth No": toothNo,
-      "Work material": workMaterial,
-      "Units": Number(units),
+      "Tooth No": item.toothNo,
+      "Work material": item.workMaterial,
+      "Units": Number(item.units),
       "Status": status,
-    };
+    }));
 
-    onSave(finalDoctor, entry);
+    onSave(finalDoctor, entries);
     
     // Reset form fields
     setPatientName("");
-    setToothNo("");
-    setWorkMaterial("");
-    setUnits("");
+    setWorkItems([{ toothNo: "", workMaterial: "", units: "" }]);
     setStatus("Active");
     setIsAddingDoctor(false);
     setNewDoctorName("");
@@ -245,58 +255,99 @@ export function AddEntryModal({
                 className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent"
               />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-white/70 mb-1">Tooth No</label>
-              <input
-                type="text"
-                placeholder="e.g. 11, 12, 13"
-                value={toothNo}
-                onChange={(e) => setToothNo(e.target.value)}
-                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent"
-              />
-            </div>
-            
-            <div className="relative" ref={suggestionsRef}>
-              <label className="block text-sm font-semibold text-white/70 mb-1">Work Material</label>
-              <input
-                type="text"
-                placeholder="e.g. PFM, Zirconia..."
-                value={workMaterial}
-                onChange={(e) => {
-                  setWorkMaterial(e.target.value);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent"
-              />
-              {showSuggestions && filteredSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-[#0a111a] border border-panel-border rounded-lg shadow-xl overflow-hidden z-50 max-h-40 overflow-y-auto custom-scrollbar">
-                  {filteredSuggestions.map((suggestion, i) => (
-                    <div
-                      key={i}
-                      onClick={() => {
-                        setWorkMaterial(suggestion);
-                        setShowSuggestions(false);
-                      }}
-                      className="px-4 py-2 hover:bg-white/5 cursor-pointer border-b border-panel-border/30 last:border-0 text-white text-sm"
+            {/* Work Items section */}
+            <div className="md:col-span-2 space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-semibold text-white/70">Work Materials *</label>
+              </div>
+              
+              {workItems.map((item, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-black/20 rounded-lg border border-white/5 relative">
+                  {workItems.length > 1 && (
+                    <button
+                      onClick={() => setWorkItems(workItems.filter((_, i) => i !== index))}
+                      className="absolute -top-2 -right-2 bg-red-500/20 text-red-400 rounded-full p-1 hover:bg-red-500 hover:text-white transition-colors z-10"
+                      title="Remove"
                     >
-                      {suggestion}
-                    </div>
-                  ))}
+                      <X size={14} />
+                    </button>
+                  )}
+                  
+                  <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-white/50 mb-1">Tooth No</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 11, 12, 13"
+                      value={item.toothNo}
+                      onChange={(e) => {
+                        const newItems = [...workItems];
+                        newItems[index].toothNo = e.target.value;
+                        setWorkItems(newItems);
+                      }}
+                      className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-6 relative" ref={activeSuggestionIndex === index ? suggestionsRef : null}>
+                    <label className="block text-xs font-semibold text-white/50 mb-1">Work Material *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. PFM, Zirconia..."
+                      value={item.workMaterial}
+                      onChange={(e) => {
+                        const newItems = [...workItems];
+                        newItems[index].workMaterial = e.target.value;
+                        setWorkItems(newItems);
+                        setActiveSuggestionIndex(index);
+                      }}
+                      onFocus={() => setActiveSuggestionIndex(index)}
+                      className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                    />
+                    {activeSuggestionIndex === index && materialSuggestions.filter(m => m.toLowerCase().includes(item.workMaterial.toLowerCase())).length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#0a111a] border border-panel-border rounded-lg shadow-xl overflow-hidden z-50 max-h-40 overflow-y-auto custom-scrollbar">
+                        {materialSuggestions.filter(m => m.toLowerCase().includes(item.workMaterial.toLowerCase())).map((suggestion, i) => (
+                          <div
+                            key={i}
+                            onClick={() => {
+                              const newItems = [...workItems];
+                              newItems[index].workMaterial = suggestion;
+                              setWorkItems(newItems);
+                              setActiveSuggestionIndex(null);
+                            }}
+                            className="px-4 py-2 hover:bg-white/5 cursor-pointer border-b border-panel-border/30 last:border-0 text-white text-sm"
+                          >
+                            {suggestion}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-white/50 mb-1">Units *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Units"
+                      value={item.units}
+                      onChange={(e) => {
+                        const newItems = [...workItems];
+                        newItems[index].units = e.target.value;
+                        setWorkItems(newItems);
+                      }}
+                      className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent text-sm"
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-white/70 mb-1">Units *</label>
-              <input
-                type="number"
-                min="1"
-                placeholder="Enter units..."
-                value={units}
-                onChange={(e) => setUnits(e.target.value)}
-                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent"
-              />
+              ))}
+              
+              <button
+                onClick={() => setWorkItems([...workItems, { toothNo: "", workMaterial: "", units: "" }])}
+                className="w-full py-2 border border-dashed border-white/20 rounded-lg text-white/50 hover:text-white hover:border-white/40 hover:bg-white/5 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+              >
+                <Plus size={16} />
+                Add Work Material
+              </button>
             </div>
             <div>
               <label className="block text-sm font-semibold text-white/70 mb-1">Status</label>
