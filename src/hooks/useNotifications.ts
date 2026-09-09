@@ -39,7 +39,7 @@ export function useNotifications() {
         if (rowArray.length > 0) {
           rowArray.forEach((row: any) => {
             const isNotDelivered = !row['Delivered Date'] || row['Delivered Date'] === 'Not Delivered' || String(row['Delivered Date']).trim() === '';
-            if (!row || !row['Received Date'] || !isNotDelivered || row['Status'] === 'Delivered') {
+            if (!row || !row['Received Date'] || !isNotDelivered || row['Status'] === 'Delivered' || row['Status'] === 'Hold') {
               return;
             }
 
