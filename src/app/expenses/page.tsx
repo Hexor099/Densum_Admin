@@ -345,7 +345,6 @@ export default function ExpensesPage() {
               </button>
             </div>
           </div>
-        </div>
         
         {/* Expense Breakdown */}
         <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-6 shadow-lg flex flex-col justify-center">
@@ -441,7 +440,6 @@ export default function ExpensesPage() {
                 )}
               </tbody>
             </table>
-          </div>
           </div>
         </div>
 
