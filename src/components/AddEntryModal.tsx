@@ -157,7 +157,6 @@ export function AddEntryModal({
     toast.success("Entry added successfully!");
   };
 
-  const filteredSuggestions = materialSuggestions.filter(m => m.toLowerCase().includes(workMaterial.toLowerCase()));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
