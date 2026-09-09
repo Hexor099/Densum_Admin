@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import { CloudUpload, RefreshCw, Plus, FileSpreadsheet, PlusCircle, Edit2, Save, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { CloudUpload, RefreshCw, Plus, FileSpreadsheet, PlusCircle, Edit2, Save, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Pause } from "lucide-react";
 import { toast } from "sonner";
 import { fetchData, writeData } from "@/lib/firebase";
 import { AddEntryModal } from "./AddEntryModal";
@@ -241,6 +241,25 @@ export function ExcelWorkspace() {
     await saveWorkspaceData(finalSheets);
   };
 
+  const toggleHold = async (rowToHold: any) => {
+    const finalSheets = sheets.map(sheet => {
+      if (sheet.id === activeSheetId) {
+        const newData = sheet.rowData.map(r => {
+          if ((r._id && r._id === rowToHold._id) || r === rowToHold) {
+            return { ...r, Status: r.Status === 'Hold' ? 'Active' : 'Hold' };
+          }
+          return r;
+        });
+        return { ...sheet, rowData: newData };
+      }
+      return sheet;
+    });
+    
+    setSheets(finalSheets);
+    toast.success(rowToHold.Status === 'Hold' ? "Resumed!" : "Put on hold!");
+    await saveWorkspaceData(finalSheets);
+  };
+
   if (isInitializing) return null;
 
   const handleSort = (key: string) => {
@@ -439,11 +458,13 @@ export function ExcelWorkspace() {
                           <option value="Active">Active</option>
                           <option value="Delivered">Delivered</option>
                           <option value="Repeat">Repeat</option>
+                          <option value="Hold">Hold</option>
                         </select>
                       ) : (
                         <span className={`px-2 py-1 text-xs font-semibold rounded-md border ${
                           row['Status'] === 'Delivered' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
                           row['Status'] === 'Repeat' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                          row['Status'] === 'Hold' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
                           'bg-blue-500/10 text-blue-400 border-blue-500/20'
                         }`}>
                           {row['Status'] || 'Active'}
@@ -462,6 +483,9 @@ export function ExcelWorkspace() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => toggleHold(row)} className="p-1.5 text-orange-400 hover:text-orange-300 rounded hover:bg-orange-400/10" title={row['Status'] === 'Hold' ? "Resume" : "Hold"}>
+                            <Pause size={16} />
+                          </button>
                           <button onClick={() => startEditing(row)} className="p-1.5 text-blue-400 hover:text-blue-300 rounded hover:bg-blue-400/10" title="Edit Row">
                             <Edit2 size={16} />
                           </button>

@@ -314,6 +314,7 @@ export function AddEntryModal({
                 <option value="Active">Active</option>
                 <option value="Delivered">Delivered</option>
                 <option value="Repeat">Repeat</option>
+                <option value="Hold">Hold</option>
               </select>
             </div>
           </div>
