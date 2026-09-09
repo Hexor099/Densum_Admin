@@ -222,6 +222,7 @@ export function AddEntryModal({
                 value={receivedDate}
                 onChange={(e) => setReceivedDate(e.target.value)}
                 className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent"
+                style={{ colorScheme: 'dark' }}
               />
             </div>
             <div>
@@ -231,6 +232,7 @@ export function AddEntryModal({
                 value={deliveredDate}
                 onChange={(e) => setDeliveredDate(e.target.value)}
                 className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent"
+                style={{ colorScheme: 'dark' }}
               />
             </div>
             <div className="md:col-span-2">

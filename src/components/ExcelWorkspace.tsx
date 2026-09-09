@@ -381,7 +381,7 @@ export function ExcelWorkspace() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
-                        <input type="date" value={formatDateForInput(editFormData['Received Date'])} onChange={(e) => setEditFormData({...editFormData, 'Received Date': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full max-w-[140px]" />
+                        <input type="date" value={formatDateForInput(editFormData['Received Date'])} onChange={(e) => setEditFormData({...editFormData, 'Received Date': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full max-w-[140px]" style={{ colorScheme: 'dark' }} />
                       ) : formatDateForDisplay(row['Received Date'])}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
@@ -399,6 +399,7 @@ export function ExcelWorkspace() {
                             });
                           }} 
                           className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full" 
+                          style={{ colorScheme: 'dark' }}
                         />
                       ) : (
                         <span className={row['Delivered Date'] === 'Not Delivered' ? 'text-foreground/50 italic' : ''}>
