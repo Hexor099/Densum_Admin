@@ -47,22 +47,34 @@ export default function NotificationCenter() {
       const rowArray = Array.isArray(rows) ? rows : Object.values(rows || {});
       if (rowArray.length > 0) {
         rowArray.forEach((row: any) => {
+          if (!row) return;
           const isNotDelivered = !row['Delivered Date'] || row['Delivered Date'] === 'Not Delivered' || String(row['Delivered Date']).trim() === '';
-          if (!row || !row['Received Date'] || !isNotDelivered || row['Status'] === 'Delivered' || row['Status'] === 'Hold') {
+          if (!row['Received Date'] || !isNotDelivered || row['Status'] === 'Delivered' || row['Status'] === 'Hold') {
             return;
           }
 
           const receivedDate = parseDateString(row['Received Date']);
           if (isNaN(receivedDate.getTime())) return;
 
-          // Target is 11 AM next day
-          const targetDate = new Date(receivedDate);
-          targetDate.setDate(targetDate.getDate() + 1);
-          targetDate.setHours(11, 0, 0, 0);
+          // Target 1: 4 PM on the received day
+          const target4PM = new Date(receivedDate);
+          target4PM.setHours(16, 0, 0, 0);
 
-          if (now >= targetDate) {
+          // Target 2: 11 AM on the next day
+          const target11AM = new Date(receivedDate);
+          target11AM.setDate(target11AM.getDate() + 1);
+          target11AM.setHours(11, 0, 0, 0);
+
+          let activeTarget = null;
+          if (now >= target11AM) {
+            activeTarget = target11AM;
+          } else if (now >= target4PM) {
+            activeTarget = target4PM;
+          }
+
+          if (activeTarget) {
             // Calculate how many hours past the target date we are
-            const diffMs = now.getTime() - targetDate.getTime();
+            const diffMs = now.getTime() - activeTarget.getTime();
             const hoursPast = Math.floor(diffMs / (1000 * 60 * 60));
             
             notifs.push({
@@ -71,7 +83,7 @@ export default function NotificationCenter() {
               doctorName: doctorName,
               receivedDate: row['Received Date'],
               message: `Order pending delivery for ${hoursPast} hour(s) past the deadline.`,
-              timestamp: targetDate.getTime()
+              timestamp: activeTarget.getTime()
             });
           }
         });
@@ -92,7 +104,7 @@ export default function NotificationCenter() {
         <div>
           <h1 className="text-3xl font-bold text-white mb-1">Notification Center</h1>
           <p className="text-foreground/70">
-            Alerts for orders exceeding the delivery deadline (Next day 11:00 AM)
+            Alerts for orders exceeding delivery deadlines (4:00 PM today & 11:00 AM next day)
           </p>
         </div>
         <div className="ml-auto">
