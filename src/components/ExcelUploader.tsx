@@ -126,9 +126,11 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       enhanced[sheet] = allSheetsData[sheet].map(row => {
         const units = Number(getVal(row, ['units'])) || 0;
         const material = String(getVal(row, ['work material']) || '').trim();
+        const toothNoRaw = String(getVal(row, ['tooth no', 'tooth no.']) || '').toLowerCase().trim();
+        const isFullMouth = toothNoRaw.includes('full mouth') || toothNoRaw === 'fm';
         const docPrices = doctorsData[sheet]?.prices || {};
         const rate = Number(docPrices[material]) || 0;
-        const totalAmount = units * rate;
+        const totalAmount = isFullMouth ? rate : (units * rate);
         return { ...row, Rate: rate, Total: totalAmount };
       });
     }
