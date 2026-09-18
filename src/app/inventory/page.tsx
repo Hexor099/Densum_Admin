@@ -246,7 +246,6 @@ export default function InventoryPage() {
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-foreground/60 uppercase bg-black/40 sticky top-0 z-10">
                   <tr>
-                    <th className="px-6 py-4">Item ID</th>
                     <th className="px-6 py-4">Name</th>
                     <th className="px-6 py-4 text-center">Stock Qty</th>
                     <th className="px-6 py-4 text-center">Action</th>
@@ -257,7 +256,6 @@ export default function InventoryPage() {
                     const isLow = (item.qty || 0) <= (item.min_limit || 0);
                     return (
                       <tr key={item.id} className={`border-b border-panel-border/30 hover:bg-white/5 transition-colors ${isLow ? 'bg-red-500/5' : ''}`}>
-                        <td className="px-6 py-4 whitespace-nowrap font-mono text-foreground/70">{item.id}</td>
                         <td className="px-6 py-4 font-medium text-white flex items-center gap-2">
                           {item.name || '-'}
                           {isLow && <span title="Low Stock!"><AlertTriangle size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(248,113,113,0.8)]" /></span>}
