@@ -3,14 +3,17 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search, LogOut, ShieldCheck, Scale, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search, LogOut, ShieldCheck, Scale, Bell, ClipboardList, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchData } from '@/lib/firebase';
 import { useStore } from '@/store/useStore';
+import { useAuth, restrictedForStaff } from '@/components/AuthProvider';
 
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Workspace', href: '/workspace', icon: Package },
+  { name: 'Procured Works', href: '/procured-works', icon: CheckSquare },
+  { name: 'Job Work Entry', href: '/job-work', icon: ClipboardList },
   { name: 'Ledger', href: '/ledger', icon: Users },
   { name: 'Aging Report', href: '/aging-report', icon: Users },
   { name: 'Bank Book', href: '/bank-book', icon: ReceiptIndianRupee },
@@ -27,6 +30,7 @@ const navItems = [
 export function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
+  const { role } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -166,6 +170,9 @@ export function Navigation() {
 
       <div className="flex-1 pb-6 flex flex-col gap-2 px-4 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => {
+          if (role === 'staff' && restrictedForStaff.includes(item.href)) {
+            return null;
+          }
           const isActive = pathname === item.href;
           const Icon = item.icon;
           return (

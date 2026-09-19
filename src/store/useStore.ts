@@ -13,6 +13,7 @@ interface AppState {
   supplier_ledger: Record<string, any>;
   inventory_history: Record<string, any>;
   excelData: Record<string, any>;
+  procuredData: Record<string, any>;
   isInitialized: boolean;
   
   initializeStore: () => void;
@@ -25,6 +26,7 @@ interface AppState {
   refreshBills: () => Promise<void>;
   refreshSupplierLedger: () => Promise<void>;
   refreshInventoryHistory: () => Promise<void>;
+  refreshProcuredData: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -38,6 +40,7 @@ export const useStore = create<AppState>((set, get) => ({
   supplier_ledger: {},
   inventory_history: {},
   excelData: {},
+  procuredData: {},
   isInitialized: false,
 
   initializeStore: () => {
@@ -54,6 +57,7 @@ export const useStore = create<AppState>((set, get) => ({
       { key: 'supplier_ledger', path: 'supplier_ledger' },
       { key: 'inventory_history', path: 'inventory_history' },
       { key: 'excelData', path: 'excelData' },
+      { key: 'procuredData', path: 'procuredData' },
     ];
 
     paths.forEach(({ key, path }) => {
@@ -77,5 +81,6 @@ export const useStore = create<AppState>((set, get) => ({
   refreshExpenses: async () => {},
   refreshBills: async () => {},
   refreshSupplierLedger: async () => {},
-  refreshInventoryHistory: async () => {}
+  refreshInventoryHistory: async () => {},
+  refreshProcuredData: async () => {}
 }));

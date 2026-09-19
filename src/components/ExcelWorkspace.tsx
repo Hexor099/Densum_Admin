@@ -378,8 +378,9 @@ export function ExcelWorkspace() {
             <thead className="text-xs text-foreground/60 uppercase bg-[#08101a] shadow-sm sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 whitespace-nowrap">Patient Name</th>
+                <th className="px-4 py-3 whitespace-nowrap">Shade</th>
                 <th className="px-4 py-3 whitespace-nowrap">Received Date</th>
-                <th className="px-4 py-3 whitespace-nowrap hidden md:table-cell">Delivered Date</th>
+                <th className="px-4 py-3 whitespace-nowrap hidden md:table-cell">Due Date</th>
                 <th className="px-4 py-3 whitespace-nowrap hidden md:table-cell">Tooth No</th>
                 <th className="px-4 py-3 whitespace-nowrap">Work Material</th>
                 <th className="px-4 py-3 whitespace-nowrap">Units</th>
@@ -390,7 +391,7 @@ export function ExcelWorkspace() {
             <tbody>
               {displayRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-10 text-foreground/50">
+                  <td colSpan={10} className="text-center py-10 text-foreground/50">
                     No entries found in this sheet. Click "Add Entry" to begin.
                   </td>
                 </tr>
@@ -402,6 +403,11 @@ export function ExcelWorkspace() {
                       {isEditing ? (
                         <input type="text" value={editFormData['Patient Name'] || ''} onChange={(e) => setEditFormData({...editFormData, 'Patient Name': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full min-w-[150px]" />
                       ) : row['Patient Name']}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-white/70">
+                      {isEditing ? (
+                        <input type="text" value={editFormData['Shade'] || ''} onChange={(e) => setEditFormData({...editFormData, 'Shade': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full max-w-[80px]" />
+                      ) : (row['Shade'] || '-')}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
@@ -460,6 +466,7 @@ export function ExcelWorkspace() {
                           }} 
                           className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full"
                         >
+                          <option value="Procured">Procured</option>
                           <option value="Active">Active</option>
                           <option value="Delivered">Delivered</option>
                           <option value="Repeat">Repeat</option>
@@ -470,6 +477,7 @@ export function ExcelWorkspace() {
                           row['Status'] === 'Delivered' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
                           row['Status'] === 'Repeat' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
                           row['Status'] === 'Hold' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                          row['Status'] === 'Procured' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
                           'bg-blue-500/10 text-blue-400 border-blue-500/20'
                         }`}>
                           {row['Status'] || 'Active'}

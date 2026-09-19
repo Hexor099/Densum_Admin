@@ -2,27 +2,66 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, fetchData, writeData } from "@/lib/firebase";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 interface AuthContextType {
   user: User | null;
+  role: 'admin' | 'staff' | null;
   loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
+const AuthContext = createContext<AuthContextType>({ user: null, role: null, loading: true });
 
 export const useAuth = () => useContext(AuthContext);
 
+export const restrictedForStaff = [
+  '/ledger',
+  '/aging-report',
+  '/bank-book',
+  '/purchases',
+  '/expenses',
+  '/gst-returns',
+  '/financial-statements',
+  '/inventory',
+  '/suppliers',
+  '/settings'
+];
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<'admin' | 'staff' | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        try {
+          const usersData = await fetchData("users");
+          let userRole = usersData?.[currentUser.uid]?.role;
+          
+          if (!userRole) {
+            // First user to log in becomes admin, others become staff
+            if (!usersData || Object.keys(usersData).length === 0) {
+              userRole = 'admin';
+              await writeData(`users/${currentUser.uid}`, { role: 'admin', email: currentUser.email });
+            } else {
+              userRole = 'staff';
+              await writeData(`users/${currentUser.uid}`, { role: 'staff', email: currentUser.email });
+            }
+          }
+          setRole(userRole);
+        } catch (e) {
+          console.error("Failed to fetch role", e);
+          setRole('staff');
+        }
+      } else {
+        setRole(null);
+      }
+
       setUser(currentUser);
       setLoading(false);
       
@@ -35,6 +74,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, [pathname, router]);
+
+  // Route protection for staff
+  useEffect(() => {
+    if (!loading && user && role === 'staff') {
+      if (restrictedForStaff.includes(pathname)) {
+        router.push("/");
+      }
+    }
+  }, [pathname, user, role, loading, router]);
 
   if (loading) {
     return (
@@ -53,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, role, loading }}>
       {children}
     </AuthContext.Provider>
   );

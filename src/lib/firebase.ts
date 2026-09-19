@@ -3,7 +3,7 @@ import { getDatabase, ref, get, set, child, update, runTransaction } from "fireb
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
-const firebaseConfig = {
+export const firebaseConfig = {
   databaseURL: "https://dentallabsync-default-rtdb.firebaseio.com/",
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCh0TNnuWapPwuGPdYW_nEHmGkx8kHErWU",
   storageBucket: "dentallabsync.appspot.com"

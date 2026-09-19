@@ -7,6 +7,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useStore } from '@/store/useStore';
+import { UserManagement } from '@/components/UserManagement';
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
@@ -439,6 +440,11 @@ export default function SettingsPage() {
             Save Changes
           </button>
         </div>
+      </div>
+
+      {/* User Management Section */}
+      <div className="mt-8">
+        <UserManagement />
       </div>
 
       {/* Data Management Section (Testing) */}

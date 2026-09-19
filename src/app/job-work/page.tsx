@@ -1,35 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Plus, Save, ChevronDown } from "lucide-react";
+import { Plus, Save, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
-import { fetchData, appendToList } from "@/lib/firebase";
+import { fetchData, appendToList, writeData } from "@/lib/firebase";
 import { useStore } from "@/store/useStore";
 
-interface AddEntryModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  sheets: { id: string; name: string }[];
-  activeSheetId: string | null;
-  onSave: (doctorName: string, entry: any) => void;
-  onAddDoctor: (name: string) => void;
-}
-
-export function AddEntryModal({
-  isOpen,
-  onClose,
-  sheets,
-  activeSheetId,
-  onSave,
-  onAddDoctor,
-}: AddEntryModalProps) {
+export default function JobWorkPage() {
   const [selectedDoctor, setSelectedDoctor] = useState("");
   const [isAddingDoctor, setIsAddingDoctor] = useState(false);
   const [newDoctorName, setNewDoctorName] = useState("");
   
   const doctorsData = useStore(state => state.doctors);
-  const catalog = useStore(state => state.catalog);
-
+  const procuredData = useStore(state => state.procuredData);
+  
   const [receivedDate, setReceivedDate] = useState("");
   const [deliveredDate, setDeliveredDate] = useState("");
   const [patientName, setPatientName] = useState("");
@@ -43,63 +27,52 @@ export function AddEntryModal({
   }
   const [workItems, setWorkItems] = useState<WorkItem[]>([{ toothNo: "", workMaterial: "", units: "" }]);
   
-  const [status, setStatus] = useState("Active");
+  const [status, setStatus] = useState("Procured");
 
   const [materialSuggestions, setMaterialSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      // Set default doctor based on active sheet
-      if (activeSheetId) {
-        const activeSheet = sheets.find((s) => s.id === activeSheetId);
-        if (activeSheet) setSelectedDoctor(activeSheet.name);
-      } else if (sheets.length > 0) {
-        setSelectedDoctor(sheets[0].name);
+    // Default dates and status
+    const today = new Date().toISOString().split("T")[0];
+    setReceivedDate(today);
+    setDeliveredDate(""); // Clear by default
+    setStatus("Active");
+    setWorkItems([{ toothNo: "", workMaterial: "", units: "" }]);
+    setActiveSuggestionIndex(null);
+
+    // Extract existing materials from doctors' prices to populate suggestions immediately
+    const defaultMaterials = new Set<string>();
+    
+    // From Doctors
+    Object.values(doctorsData || {}).forEach((doc: any) => {
+      if (doc?.prices) {
+        Object.keys(doc.prices).forEach(mat => defaultMaterials.add(mat));
       }
+    });
 
-      // Default dates and status
-      const today = new Date().toISOString().split("T")[0];
-      setReceivedDate(today);
-      setDeliveredDate(""); // Clear by default
-      setStatus("Active");
-      setWorkItems([{ toothNo: "", workMaterial: "", units: "" }]);
-      setActiveSuggestionIndex(null);
-
-      // Extract existing materials from doctors' prices to populate suggestions immediately
-      const defaultMaterials = new Set<string>();
-      
-      // From Doctors
-      Object.values(doctorsData || {}).forEach((doc: any) => {
-        if (doc?.prices) {
-          Object.keys(doc.prices).forEach(mat => defaultMaterials.add(mat));
-        }
-      });
-
-      // Load material suggestions from Firebase list (user added)
-      fetchData("settings/work_materials").then((data) => {
-        if (data) {
-          const list = Array.isArray(data) ? data : Object.values(data);
-          list.forEach(m => defaultMaterials.add(m as string));
-        }
-        setMaterialSuggestions(Array.from(defaultMaterials));
-      });
-    }
-  }, [isOpen, activeSheetId, sheets, doctorsData]);
+    // Load material suggestions from Firebase list (user added)
+    fetchData("settings/work_materials").then((data) => {
+      if (data) {
+        const list = Array.isArray(data) ? data : Object.values(data);
+        list.forEach(m => defaultMaterials.add(m as string));
+      }
+      setMaterialSuggestions(Array.from(defaultMaterials));
+    });
+  }, [doctorsData]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
+        setActiveSuggestionIndex(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (!isOpen) return null;
+  const doctorOptions = Object.keys(doctorsData || {});
 
   const handleSave = async () => {
     let finalDoctor = selectedDoctor;
@@ -110,7 +83,6 @@ export function AddEntryModal({
         return;
       }
       finalDoctor = newDoctorName.trim();
-      onAddDoctor(finalDoctor);
     } else {
       if (!finalDoctor) {
         toast.error("Please select a doctor.");
@@ -138,9 +110,12 @@ export function AddEntryModal({
       }
     }
 
+    const safeDoctorName = finalDoctor.replace(/\./g, ' ').replace(/[#$\[\]\/]/g, '');
+
     const entries = workItems.map(item => ({
+      _id: Math.random().toString(36).substring(2, 11),
       "Received Date": receivedDate,
-      "Delivered Date": deliveredDate,
+      "Delivered Date": deliveredDate || "Not Delivered",
       "Patient Name": patientName,
       "Location": location,
       "Shade": shade,
@@ -150,32 +125,39 @@ export function AddEntryModal({
       "Status": status,
     }));
 
-    onSave(finalDoctor, entries);
-    
-    // Reset form fields
-    setPatientName("");
-    setLocation("");
-    setShade("");
-    setWorkItems([{ toothNo: "", workMaterial: "", units: "" }]);
-    setStatus("Active");
-    setIsAddingDoctor(false);
-    setNewDoctorName("");
-    toast.success("Entry added successfully!");
+    try {
+      // Create doctor if it doesn't exist
+      if (!doctorsData[safeDoctorName]) {
+        await writeData(`doctors/${safeDoctorName}`, { balance: 0, prices: {} });
+      }
+
+      // Add to procuredData
+      const existingSheetRows = procuredData[safeDoctorName] || [];
+      const newSheetRows = [...entries, ...existingSheetRows];
+      await writeData(`procuredData/${safeDoctorName}`, newSheetRows);
+
+      toast.success("Entry added successfully!");
+
+      // Reset form fields
+      setPatientName("");
+      setLocation("");
+      setShade("");
+      setWorkItems([{ toothNo: "", workMaterial: "", units: "" }]);
+      setStatus("Procured");
+      setIsAddingDoctor(false);
+      setNewDoctorName("");
+    } catch (err: any) {
+      toast.error("Failed to save entry: " + err.message);
+    }
   };
 
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-panel border border-panel-border rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="flex justify-between items-center p-4 border-b border-panel-border">
-          <h2 className="text-xl font-bold text-white">Add New Lab Entry</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white transition-colors">
-            <X size={24} />
-          </button>
-        </div>
+    <div className="flex flex-col h-full bg-background relative w-full min-w-0 overflow-y-auto custom-scrollbar p-6">
+      <div className="max-w-3xl mx-auto w-full">
+        <h1 className="text-2xl font-bold text-white mb-6">Job Work Entry</h1>
+        <p className="text-foreground/70 mb-8">Staff and collection team can enter new job work procured from doctors here.</p>
 
-        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-          {/* Doctor Selection Row */}
+        <div className="bg-panel border border-panel-border rounded-xl shadow-2xl flex flex-col p-6 space-y-6">
           <div className="bg-black/20 p-4 rounded-lg border border-white/5">
             <label className="block text-sm font-semibold text-white/70 mb-2 uppercase tracking-wider">
               Doctor
@@ -189,9 +171,9 @@ export function AddEntryModal({
                     className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm appearance-none"
                   >
                     <option value="" disabled>Select a doctor...</option>
-                    {sheets.map((sheet) => (
-                      <option key={sheet.id} value={sheet.name}>
-                        {sheet.name}
+                    {doctorOptions.map((docName) => (
+                      <option key={docName} value={docName}>
+                        {docName}
                       </option>
                     ))}
                   </select>
@@ -260,6 +242,7 @@ export function AddEntryModal({
                 className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent"
               />
             </div>
+            
             <div>
               <label className="block text-sm font-semibold text-white/70 mb-1">Location</label>
               <input
@@ -280,7 +263,7 @@ export function AddEntryModal({
                 className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent"
               />
             </div>
-            {/* Work Items section */}
+            
             <div className="md:col-span-2 space-y-4">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-semibold text-white/70">Work Materials *</label>
@@ -376,41 +359,21 @@ export function AddEntryModal({
             </div>
             <div>
               <label className="block text-sm font-semibold text-white/70 mb-1">Status</label>
-              <select
-                value={status}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setStatus(val);
-                  if (val === 'Delivered' && !deliveredDate) {
-                    setDeliveredDate(new Date().toISOString().split('T')[0]);
-                  }
-                }}
-                className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent appearance-none"
-              >
-                <option value="Procured">Procured</option>
-                <option value="Active">Active</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Repeat">Repeat</option>
-                <option value="Hold">Hold</option>
-              </select>
+              <div className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-yellow-500/70 font-medium bg-yellow-500/5 cursor-not-allowed">
+                Procured
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="p-4 border-t border-panel-border bg-black/20 flex justify-end gap-3 rounded-b-xl">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base text-white/70 font-medium rounded-lg hover:text-white hover:bg-white/5 transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)] flex items-center gap-2"
-          >
-            <Save size={18} className="w-4 h-4 sm:w-5 sm:h-5" />
-            Save Entry
-          </button>
+          
+          <div className="pt-4 border-t border-panel-border flex justify-end">
+            <button
+              onClick={handleSave}
+              className="px-6 py-3 bg-accent text-panel font-bold rounded-lg hover:bg-accent-glow transition-all shadow-[0_0_15px_rgba(0,194,255,0.4)] flex items-center gap-2"
+            >
+              <Save size={20} />
+              Save Entry
+            </button>
+          </div>
         </div>
       </div>
     </div>
