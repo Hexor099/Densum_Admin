@@ -17,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({ user: null, role: null, loa
 export const useAuth = () => useContext(AuthContext);
 
 export const restrictedForStaff = [
+  '/',
   '/ledger',
   '/aging-report',
   '/bank-book',
@@ -38,24 +39,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      let currentRole = null;
       if (currentUser) {
         try {
           const usersData = await fetchData("users");
-          let userRole = usersData?.[currentUser.uid]?.role;
+          currentRole = usersData?.[currentUser.uid]?.role;
           
-          if (!userRole) {
+          if (!currentRole) {
             // First user to log in becomes admin, others become staff
             if (!usersData || Object.keys(usersData).length === 0) {
-              userRole = 'admin';
+              currentRole = 'admin';
               await writeData(`users/${currentUser.uid}`, { role: 'admin', email: currentUser.email });
             } else {
-              userRole = 'staff';
+              currentRole = 'staff';
               await writeData(`users/${currentUser.uid}`, { role: 'staff', email: currentUser.email });
             }
           }
-          setRole(userRole);
+          setRole(currentRole);
         } catch (e) {
           console.error("Failed to fetch role", e);
+          currentRole = 'staff';
           setRole('staff');
         }
       } else {
@@ -68,7 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!currentUser && pathname !== "/login") {
         router.push("/login");
       } else if (currentUser && pathname === "/login") {
-        router.push("/");
+        if (currentRole === 'staff') {
+          router.push("/job-work");
+        } else {
+          router.push("/");
+        }
       }
     });
 
@@ -79,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && user && role === 'staff') {
       if (restrictedForStaff.includes(pathname)) {
-        router.push("/");
+        router.push("/job-work");
       }
     }
   }, [pathname, user, role, loading, router]);

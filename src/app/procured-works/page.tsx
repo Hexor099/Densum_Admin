@@ -7,8 +7,10 @@ import { writeData } from "@/lib/firebase";
 import { useStore } from "@/store/useStore";
 import { formatDateForDisplay } from "@/lib/utils";
 import { PalmerCross } from "@/components/PalmerCross";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function ProcuredWorksPage() {
+  const { role } = useAuth();
   const procuredData = useStore(state => state.procuredData);
   const excelData = useStore(state => state.excelData);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -152,7 +154,7 @@ export default function ProcuredWorksPage() {
             </button>
           </div>
           
-          {activeTab === 'pending' && pendingWorks.length > 0 && (
+          {activeTab === 'pending' && pendingWorks.length > 0 && role === 'admin' && (
             <button 
               onClick={handleApproveAll}
               disabled={isProcessing}
@@ -233,7 +235,7 @@ export default function ProcuredWorksPage() {
                   </div>
                 </div>
                 
-                {activeTab === 'pending' && (
+                {activeTab === 'pending' && role === 'admin' && (
                   <div className="flex justify-end gap-3 pt-4 border-t border-panel-border">
                     <button 
                       onClick={() => handleReject(work.doctorName, work)}
