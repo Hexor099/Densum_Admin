@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle, XCircle, Clock, Check, History, ListTodo, Edit, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { writeData } from "@/lib/firebase";
@@ -17,6 +17,36 @@ export default function ProcuredWorksPage() {
   const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
   const [editingWorkId, setEditingWorkId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+
+  // Auto-cleanup history older than 7 days
+  useEffect(() => {
+    if (!procuredData || Object.keys(procuredData).length === 0 || role !== 'admin') return;
+    
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const cleanup = async () => {
+      for (const [doctorName, entries] of Object.entries(procuredData)) {
+        if (!Array.isArray(entries)) continue;
+        
+        const validEntries = entries.filter(entry => {
+          if ((entry.isApproved || entry.isRejected) && entry.processedAt) {
+            const processedTime = new Date(entry.processedAt).getTime();
+            if (now - processedTime > SEVEN_DAYS_MS) {
+              return false; // Remove this entry
+            }
+          }
+          return true; // Keep
+        });
+
+        if (validEntries.length !== entries.length) {
+          await writeData(`procuredData/${doctorName}`, validEntries);
+        }
+      }
+    };
+    
+    cleanup();
+  }, [procuredData, role]);
 
   const formatDateForInput = (val: string) => {
     if (!val || val === 'Not Delivered') return '';
