@@ -385,7 +385,7 @@ export function ExcelWorkspace() {
                 <th className="px-4 py-3 whitespace-nowrap">Work Material</th>
                 <th className="px-4 py-3 whitespace-nowrap">Units</th>
                 <th className="px-4 py-3 whitespace-nowrap">Status</th>
-                <th className="px-4 py-3 whitespace-nowrap text-right">Actions</th>
+                <th className="px-4 py-3 whitespace-nowrap text-right sticky right-0 bg-[#08101a] z-20 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.1)]">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -484,7 +484,7 @@ export function ExcelWorkspace() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                    <td className="px-4 py-3 whitespace-nowrap text-right sticky right-0 bg-[#0a0f18] group-hover:bg-[#111926] shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.1)] transition-colors z-10">
                       {isEditing ? (
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={saveEditing} className="p-1.5 text-green-400 hover:text-green-300 rounded hover:bg-green-400/10" title="Save">
@@ -495,7 +495,7 @@ export function ExcelWorkspace() {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2 opacity-100 transition-opacity">
                           <button onClick={() => toggleHold(row)} className="p-1.5 text-orange-400 hover:text-orange-300 rounded hover:bg-orange-400/10" title={row['Status'] === 'Hold' ? "Resume" : "Hold"}>
                             <Pause size={16} />
                           </button>

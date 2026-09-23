@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, Clock, Check, History, ListTodo } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Check, History, ListTodo, Edit, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { writeData } from "@/lib/firebase";
 import { useStore } from "@/store/useStore";
@@ -15,6 +15,22 @@ export default function ProcuredWorksPage() {
   const excelData = useStore(state => state.excelData);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
+  const [editingWorkId, setEditingWorkId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+
+  const formatDateForInput = (val: string) => {
+    if (!val || val === 'Not Delivered') return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+    
+    // Convert M/D/YY to YYYY-MM-DD
+    const parts = val.split('/');
+    if (parts.length === 3) {
+      let [m, d, y] = parts;
+      if (y.length === 2) y = '20' + y;
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+    return '';
+  };
 
   // Flatten procured data for display
   const allWorks = Object.entries(procuredData || {}).flatMap(([doctorName, entries]) => 
@@ -117,6 +133,27 @@ export default function ProcuredWorksPage() {
     }
   };
 
+  const handleSaveEdit = async (doctorName: string, originalWork: any) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    
+    try {
+      const existingProcuredRows = procuredData[doctorName] || [];
+      const newProcuredRows = existingProcuredRows.map((r: any) => 
+        r._id === originalWork._id ? { ...r, ...editForm } : r
+      );
+
+      await writeData(`procuredData/${doctorName}`, newProcuredRows);
+      
+      toast.success("Work entry updated successfully.");
+      setEditingWorkId(null);
+    } catch (err: any) {
+      toast.error("Failed to update entry: " + err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-background relative w-full min-w-0 overflow-hidden">
       <div className="p-6 border-b border-panel-border bg-black/40 flex flex-col md:flex-row justify-between items-start md:items-center shrink-0 gap-4">
@@ -186,12 +223,74 @@ export default function ProcuredWorksPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {displayWorks.map((work) => (
+            {displayWorks.map((work) => {
+              const isEditing = editingWorkId === work._id;
+              
+              return (
               <div key={work._id} className={`bg-panel border rounded-xl p-5 shadow-lg flex flex-col justify-between group transition-colors ${
                 work.isApproved ? 'border-green-500/20' : 
                 work.isRejected ? 'border-red-500/20' : 
                 'border-panel-border hover:border-accent/30'
               }`}>
+                {isEditing ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-lg font-bold text-white">Edit Entry</h3>
+                      <button onClick={() => setEditingWorkId(null)} className="text-foreground/50 hover:text-white">
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-semibold text-white/50 mb-1">Patient Name</label>
+                      <input type="text" value={editForm['Patient Name'] || ''} onChange={(e) => setEditForm({...editForm, 'Patient Name': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-white/50 mb-1">Material</label>
+                        <input type="text" value={editForm['Work material'] || ''} onChange={(e) => setEditForm({...editForm, 'Work material': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-white/50 mb-1">Units</label>
+                        <input type="number" value={editForm['Units'] || ''} onChange={(e) => setEditForm({...editForm, 'Units': Number(e.target.value)})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-white/50 mb-1">Tooth No</label>
+                        <input type="text" value={editForm['Tooth No'] || ''} onChange={(e) => setEditForm({...editForm, 'Tooth No': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-white/50 mb-1">Shade</label>
+                        <input type="text" value={editForm['Shade'] || ''} onChange={(e) => setEditForm({...editForm, 'Shade': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-white/50 mb-1">Received Date</label>
+                        <input type="date" value={formatDateForInput(editForm['Received Date'])} onChange={(e) => setEditForm({...editForm, 'Received Date': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" style={{ colorScheme: 'dark' }} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-white/50 mb-1">Due Date</label>
+                        <input type="date" value={formatDateForInput(editForm['Delivered Date'])} onChange={(e) => setEditForm({...editForm, 'Delivered Date': e.target.value || 'Not Delivered'})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" style={{ colorScheme: 'dark' }} />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-panel-border">
+                      <button 
+                        onClick={() => setEditingWorkId(null)}
+                        className="px-4 py-2 text-sm text-foreground/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={() => handleSaveEdit(work.doctorName, work)}
+                        disabled={isProcessing}
+                        className="px-4 py-2 flex items-center gap-2 text-sm font-bold text-panel bg-accent rounded-lg hover:bg-accent-glow transition-all disabled:opacity-50"
+                      >
+                        <Save size={16} /> Save Changes
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 <div className="mb-4">
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -235,28 +334,53 @@ export default function ProcuredWorksPage() {
                   </div>
                 </div>
                 
-                {activeTab === 'pending' && role === 'admin' && (
+                {activeTab === 'pending' && (
                   <div className="flex justify-end gap-3 pt-4 border-t border-panel-border">
                     <button 
-                      onClick={() => handleReject(work.doctorName, work)}
+                      onClick={() => {
+                        setEditingWorkId(work._id);
+                        setEditForm({
+                          'Patient Name': work['Patient Name'] || '',
+                          'Work material': work['Work material'] || '',
+                          'Units': work['Units'] || '',
+                          'Tooth No': work['Tooth No'] || '',
+                          'Shade': work['Shade'] || '',
+                          'Received Date': work['Received Date'] || '',
+                          'Delivered Date': work['Delivered Date'] || '',
+                        });
+                      }}
                       disabled={isProcessing}
-                      className="px-4 py-2 flex items-center gap-2 text-sm font-medium text-red-400 bg-red-500/10 rounded-lg hover:bg-red-500/20 border border-red-500/20 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 flex items-center gap-2 text-sm font-medium text-white/70 bg-white/5 rounded-lg hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50 mr-auto"
                     >
-                      <XCircle size={16} />
-                      Reject
+                      <Edit size={16} />
+                      Edit
                     </button>
-                    <button 
-                      onClick={() => handleApprove(work.doctorName, work)}
-                      disabled={isProcessing}
-                      className="px-4 py-2 flex items-center gap-2 text-sm font-bold text-white bg-white/10 rounded-lg hover:bg-white/20 border border-white/10 transition-all disabled:opacity-50"
-                    >
-                      <Check size={16} />
-                      Approve
-                    </button>
+                    {role === 'admin' && (
+                      <>
+                        <button 
+                          onClick={() => handleReject(work.doctorName, work)}
+                          disabled={isProcessing}
+                          className="px-4 py-2 flex items-center gap-2 text-sm font-medium text-red-400 bg-red-500/10 rounded-lg hover:bg-red-500/20 border border-red-500/20 transition-colors disabled:opacity-50"
+                        >
+                          <XCircle size={16} />
+                          Reject
+                        </button>
+                        <button 
+                          onClick={() => handleApprove(work.doctorName, work)}
+                          disabled={isProcessing}
+                          className="px-4 py-2 flex items-center gap-2 text-sm font-bold text-white bg-white/10 rounded-lg hover:bg-white/20 border border-white/10 transition-all disabled:opacity-50"
+                        >
+                          <Check size={16} />
+                          Approve
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
+                </>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
