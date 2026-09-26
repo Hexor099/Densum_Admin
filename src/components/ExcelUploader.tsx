@@ -57,13 +57,70 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       
       const result = await syncExcelData(formData);
       if (result.success) {
-        setAllSheetsData(result.data);
-        setSheetNames(result.sheetNames || []);
+        // Fetch existing cloud data to merge with
+        const existingCloudData = await fetchData('excelData') || {};
+        const mergedData: Record<string, any[]> = {};
+        
+        const allSheetNames = new Set([...Object.keys(result.data), ...Object.keys(existingCloudData)]);
+        
+        for (const sheetName of Array.from(allSheetNames)) {
+           const excelRows = result.data[sheetName] || [];
+           const existingRows = existingCloudData[sheetName] || [];
+           
+           const getRowKey = (r: any) => `${String(r['Patient Name']||'').toLowerCase().trim()}_${String(r['Received Date']||'').toLowerCase().trim()}_${String(r['Work material']||'').toLowerCase().trim()}`;
+           
+           const existingMap = new Map();
+           existingRows.forEach((r: any) => existingMap.set(getRowKey(r), r));
+           
+           const finalRows = [];
+           
+           for (const excelRow of excelRows) {
+               const key = getRowKey(excelRow);
+               const existingRow = existingMap.get(key);
+               
+               if (existingRow) {
+                   // Merge and preserve user edits
+                   finalRows.push({
+                       ...excelRow,
+                       '_id': existingRow['_id'] || Math.random().toString(36).substring(2, 11),
+                       'Shade': existingRow['Shade'] || excelRow['Shade'] || '',
+                       'Location': existingRow['Location'] || excelRow['Location'] || '',
+                       'Status': existingRow['Status'] && existingRow['Status'] !== 'Active' && existingRow['Status'] !== 'Procured' ? existingRow['Status'] : excelRow['Status'] || 'Active',
+                       'Delivered Date': existingRow['Delivered Date'] && existingRow['Delivered Date'] !== 'Not Delivered' ? existingRow['Delivered Date'] : excelRow['Delivered Date'] || 'Not Delivered',
+                   });
+                   existingMap.delete(key);
+               } else {
+                   // Give it a fresh ID
+                   finalRows.push({
+                     ...excelRow,
+                     _id: Math.random().toString(36).substring(2, 11)
+                   });
+               }
+           }
+           
+           // Add remaining existing rows that weren't matched in Excel (e.g., manually added in Workspace)
+           existingMap.forEach((r: any) => {
+               finalRows.push(r);
+           });
+           
+           // Sort by Received Date descending
+           finalRows.sort((a, b) => {
+             const dateA = parseDateString(getVal(a, ['received date']) || '').getTime();
+             const dateB = parseDateString(getVal(b, ['received date']) || '').getTime();
+             return dateB - dateA;
+           });
+           
+           mergedData[sheetName] = finalRows;
+        }
+
+        setAllSheetsData(mergedData);
+        const sortedSheetNames = Array.from(allSheetNames).sort();
+        setSheetNames(sortedSheetNames);
         
         // Auto-create missing doctors in Firebase
-        if (result.sheetNames) {
+        if (sortedSheetNames.length > 0) {
           let changed = false;
-          for (const docName of result.sheetNames) {
+          for (const docName of sortedSheetNames) {
             if (!doctorsData[docName]) {
                changed = true;
                await writeData(`doctors/${docName}`, { balance: 0, prices: {} });
@@ -72,15 +129,15 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           if (changed) await refreshDoctors();
         }
 
-        if (result.sheetNames && result.sheetNames.length > 0 && !currentSheet) {
-          setCurrentSheet(result.sheetNames[0]);
+        if (sortedSheetNames.length > 0 && !currentSheet) {
+          setCurrentSheet(sortedSheetNames[0]);
         }
 
         // Auto-save to cloud
         try {
-          const res = await writeData('excelData', result.data);
+          const res = await writeData('excelData', mergedData);
           if (res.success) {
-            toast.success("Excel data successfully saved to the cloud! It will now load automatically on any PC.");
+            toast.success("Excel data successfully synced and merged! Your edits were preserved.");
           } else {
             toast.error("Failed to write to database. It might be too large or contain invalid characters.");
           }
