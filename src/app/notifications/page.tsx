@@ -2,6 +2,7 @@
 
 import { useStore } from "@/store/useStore";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, Clock, AlertCircle } from "lucide-react";
 import { parseDateString, formatDateForDisplay } from "@/lib/utils";
 import { db } from "@/lib/firebase";
@@ -17,6 +18,7 @@ interface NotificationItem {
 }
 
 export default function NotificationCenter() {
+  const router = useRouter();
   const storeExcelData = useStore((state) => (state as any).excelData);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
@@ -129,7 +131,8 @@ export default function NotificationCenter() {
             {notifications.map((notif) => (
               <div 
                 key={notif.id} 
-                className="flex items-start gap-4 p-4 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-colors"
+                onClick={() => router.push(`/workspace?doctor=${encodeURIComponent(notif.doctorName)}&patient=${encodeURIComponent(notif.patientName)}`)}
+                className="flex items-start gap-4 p-4 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-colors cursor-pointer"
               >
                 <div className="mt-1 p-2 bg-red-500/20 text-red-400 rounded-lg shrink-0">
                   <Clock size={20} />

@@ -7,6 +7,7 @@ import { fetchData, writeData } from "@/lib/firebase";
 import { AddEntryModal } from "./AddEntryModal";
 import { formatDateForDisplay, parseDateString } from "@/lib/utils";
 import { PalmerCross } from "./PalmerCross";
+import { useSearchParams } from "next/navigation";
 import { useStore } from "@/store/useStore";
 
 type DoctorSheet = {
@@ -22,6 +23,8 @@ export function ExcelWorkspace() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { doctors, refreshDoctors } = useStore();
+  const searchParams = useSearchParams();
+  const [patientSearch, setPatientSearch] = useState('');
   
   // Inline editing state
   const [editingRow, setEditingRow] = useState<any>(null);
@@ -57,7 +60,21 @@ export function ExcelWorkspace() {
           
           setSheets(loadedSheets);
           if (loadedSheets.length > 0) {
-            setActiveSheetId(loadedSheets[0].id);
+            const urlDoctor = searchParams.get('doctor');
+            const urlPatient = searchParams.get('patient');
+            
+            let targetSheetId = loadedSheets[0].id;
+            
+            if (urlDoctor) {
+              const match = loadedSheets.find(s => s.name.toLowerCase() === urlDoctor.toLowerCase());
+              if (match) targetSheetId = match.id;
+            }
+            
+            setActiveSheetId(targetSheetId);
+            
+            if (urlPatient) {
+               setPatientSearch(urlPatient);
+            }
           }
         } else {
           const defaultSheet = {
@@ -299,6 +316,7 @@ export function ExcelWorkspace() {
   // Only display rows that are not entirely empty, and sort according to sortConfig
   const displayRows = activeSheet?.rowData
     .filter(row => row && Object.values(row).some(v => v !== null && v !== undefined && v !== ""))
+    .filter(row => !patientSearch || String(row['Patient Name'] || '').toLowerCase().includes(patientSearch.toLowerCase()))
     .sort((a, b) => {
       if (!sortConfig) return 0;
       let valA = a[sortConfig.key] || '';
@@ -342,6 +360,22 @@ export function ExcelWorkspace() {
                   handleTabSwitch(match.id);
                 }
               }}
+              className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-accent transition-colors shadow-inner"
+            />
+          </div>
+          <div className="relative w-full">
+            <svg 
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 pointer-events-none" 
+              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              placeholder="Search patient name..."
+              value={patientSearch}
+              onChange={e => setPatientSearch(e.target.value)}
               className="w-full bg-black/40 border border-panel-border rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-accent transition-colors shadow-inner"
             />
           </div>
