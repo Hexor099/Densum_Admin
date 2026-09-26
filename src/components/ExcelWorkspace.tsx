@@ -379,6 +379,7 @@ export function ExcelWorkspace() {
               <tr>
                 <th className="px-4 py-3 whitespace-nowrap">Patient Name</th>
                 <th className="px-4 py-3 whitespace-nowrap">Shade</th>
+                <th className="px-4 py-3 whitespace-nowrap hidden md:table-cell">Location</th>
                 <th className="px-4 py-3 whitespace-nowrap">Received Date</th>
                 <th className="px-4 py-3 whitespace-nowrap hidden md:table-cell">Due Date</th>
                 <th className="px-4 py-3 whitespace-nowrap hidden md:table-cell">Tooth No</th>
@@ -408,6 +409,11 @@ export function ExcelWorkspace() {
                       {isEditing ? (
                         <input type="text" value={editFormData['Shade'] || ''} onChange={(e) => setEditFormData({...editFormData, 'Shade': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full max-w-[80px]" />
                       ) : (row['Shade'] || '-')}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-white/70 hidden md:table-cell">
+                      {isEditing ? (
+                        <input type="text" value={editFormData['Location'] || ''} onChange={(e) => setEditFormData({...editFormData, 'Location': e.target.value})} className="bg-black/40 border border-panel-border rounded px-2 py-1 text-white w-full max-w-[120px]" />
+                      ) : (row['Location'] || '-')}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (

@@ -294,6 +294,20 @@ export default function ProcuredWorksPage() {
                         <input type="text" value={editForm['Shade'] || ''} onChange={(e) => setEditForm({...editForm, 'Shade': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" />
                       </div>
                       <div>
+                        <label className="block text-xs font-semibold text-white/50 mb-1">Location</label>
+                        <input type="text" value={editForm['Location'] || ''} onChange={(e) => setEditForm({...editForm, 'Location': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-white/50 mb-1">Status</label>
+                        <select value={editForm['Status'] || 'Active'} onChange={(e) => setEditForm({...editForm, 'Status': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm appearance-none">
+                          <option value="Procured">Procured</option>
+                          <option value="Active">Active</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Repeat">Repeat</option>
+                          <option value="Hold">Hold</option>
+                        </select>
+                      </div>
+                      <div>
                         <label className="block text-xs font-semibold text-white/50 mb-1">Received Date</label>
                         <input type="date" value={formatDateForInput(editForm['Received Date'])} onChange={(e) => setEditForm({...editForm, 'Received Date': e.target.value})} className="w-full bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-white text-sm" style={{ colorScheme: 'dark' }} />
                       </div>
@@ -355,6 +369,18 @@ export default function ProcuredWorksPage() {
                       <div className="text-xs text-foreground/50 mb-1">Due Date</div>
                       <div className="text-sm text-white">{work['Delivered Date'] === 'Not Delivered' ? <span className="italic text-foreground/50">Not Delivered</span> : formatDateForDisplay(work['Delivered Date'])}</div>
                     </div>
+                    <div>
+                      <div className="text-xs text-foreground/50 mb-1">Shade</div>
+                      <div className="text-sm text-white font-medium">{work['Shade'] || <span className="text-foreground/50">N/A</span>}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-foreground/50 mb-1">Location</div>
+                      <div className="text-sm text-white font-medium">{work['Location'] || <span className="text-foreground/50">N/A</span>}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-foreground/50 mb-1">Status</div>
+                      <div className="text-sm text-white font-medium">{work['Status'] || <span className="text-foreground/50">N/A</span>}</div>
+                    </div>
                     {activeTab === 'history' && work.processedAt && (
                       <div className="col-span-2 mt-2 pt-2 border-t border-white/5">
                         <div className="text-xs text-foreground/50 mb-1">Processed At</div>
@@ -375,6 +401,8 @@ export default function ProcuredWorksPage() {
                           'Units': work['Units'] || '',
                           'Tooth No': work['Tooth No'] || '',
                           'Shade': work['Shade'] || '',
+                          'Location': work['Location'] || '',
+                          'Status': work['Status'] || 'Active',
                           'Received Date': work['Received Date'] || '',
                           'Delivered Date': work['Delivered Date'] || '',
                         });
