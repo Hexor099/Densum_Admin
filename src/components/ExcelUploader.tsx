@@ -67,7 +67,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
            const excelRows = result.data[sheetName] || [];
            const existingRows = existingCloudData[sheetName] || [];
            
-           const getRowKey = (r: any) => `${String(r['Patient Name']||'').toLowerCase().trim()}_${String(r['Received Date']||'').toLowerCase().trim()}_${String(r['Work material']||'').toLowerCase().trim()}`;
+           const getRowKey = (r: any) => `${String(r['Patient Name']||'').toLowerCase().trim()}_${String(r['Received Date']||'').toLowerCase().trim()}_${String(r['Work material']||'').toLowerCase().trim()}_${String(r['Tooth No']||'').toLowerCase().trim()}_${String(r['Units']||'').toLowerCase().trim()}`;
            
            const existingMap = new Map();
            existingRows.forEach((r: any) => existingMap.set(getRowKey(r), r));
