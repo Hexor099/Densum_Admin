@@ -92,8 +92,8 @@ export default function NotificationCenter() {
       }
     });
 
-    // Sort by timestamp descending (newest issues first)
-    notifs.sort((a, b) => b.timestamp - a.timestamp);
+    // Sort by timestamp ascending (oldest issues first, meaning the ones pending the longest appear at the top)
+    notifs.sort((a, b) => a.timestamp - b.timestamp);
     setNotifications(notifs);
   }, [storeExcelData]);
 
