@@ -364,7 +364,21 @@ export default function LedgerPage() {
     const matName = materialName.trim();
     const rate = Number(materialRate);
     
-    const updatedPrices = { ...(selectedDoc.prices || {}), [matName]: rate };
+    const updatedPrices = { ...(selectedDoc.prices || {}) };
+    
+    if (updatedPrices[matName] !== undefined) {
+      delete updatedPrices[matName];
+    }
+    
+    let existingKey = "mat_" + Math.random().toString(36).substring(2, 9);
+    for (const [k, v] of Object.entries(updatedPrices)) {
+      if (v && typeof v === 'object' && (v as any).name === matName) {
+        existingKey = k;
+        break;
+      }
+    }
+    
+    updatedPrices[existingKey] = { name: matName, rate };
     
     await writeData(`doctors/${selectedDocId}/prices`, updatedPrices);
     await refreshDoctors();
@@ -374,7 +388,16 @@ export default function LedgerPage() {
 
   const deletePrice = async (matName: string) => {
     const updatedPrices = { ...(selectedDoc.prices || {}) };
-    delete updatedPrices[matName];
+    
+    if (updatedPrices[matName] !== undefined) {
+      delete updatedPrices[matName];
+    }
+    
+    for (const [k, v] of Object.entries(updatedPrices)) {
+      if (v && typeof v === 'object' && (v as any).name === matName) {
+        delete updatedPrices[k];
+      }
+    }
     
     await writeData(`doctors/${selectedDocId}/prices`, updatedPrices);
     await refreshDoctors();
@@ -647,8 +670,11 @@ export default function LedgerPage() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto border border-panel-border rounded-lg bg-black/20 p-2 space-y-1 custom-scrollbar">
-                  {Object.entries(selectedDoc.prices || {}).map(([mat, rate]) => (
-                    <div key={mat} className="flex items-center justify-between px-3 py-2 bg-black/30 rounded-md">
+                  {Object.entries(selectedDoc.prices || {}).map(([key, value]) => {
+                    const mat = typeof value === 'object' && value !== null ? (value as any).name : key;
+                    const rate = typeof value === 'object' && value !== null ? (value as any).rate : value;
+                    return (
+                    <div key={key} className="flex items-center justify-between px-3 py-2 bg-black/30 rounded-md">
                       <span className="text-sm font-medium text-white">{mat}</span>
                       <div className="flex items-center gap-3">
                         <span className="text-sm text-accent font-bold">₹{String(rate)}</span>
@@ -660,7 +686,7 @@ export default function LedgerPage() {
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )})}
                   {Object.keys(selectedDoc.prices || {}).length === 0 && (
                     <div className="text-center text-sm text-foreground/50 py-4">No custom prices set</div>
                   )}

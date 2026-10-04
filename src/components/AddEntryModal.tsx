@@ -74,7 +74,13 @@ export function AddEntryModal({
       // From Doctors
       Object.values(doctorsData || {}).forEach((doc: any) => {
         if (doc?.prices) {
-          Object.keys(doc.prices).forEach(mat => defaultMaterials.add(mat));
+          Object.entries(doc.prices).forEach(([k, v]) => {
+            if (v && typeof v === 'object' && (v as any).name) {
+              defaultMaterials.add((v as any).name);
+            } else {
+              defaultMaterials.add(k);
+            }
+          });
         }
       });
 

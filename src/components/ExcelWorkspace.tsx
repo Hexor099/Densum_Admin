@@ -114,6 +114,35 @@ export function ExcelWorkspace() {
     setActiveSheetId(id);
   };
 
+  const handleDeleteSheet = async (sheetId: string) => {
+    const sheetToDelete = sheets.find(s => s.id === sheetId);
+    if (!sheetToDelete) return;
+    
+    if (!confirm(`Are you sure you want to delete the entire workspace for Doctor: ${sheetToDelete.name}? This will remove all their entries from the workspace.`)) {
+      return;
+    }
+
+    let updatedSheets = sheets.filter(s => s.id !== sheetId);
+    
+    if (sheetId === activeSheetId) {
+      if (updatedSheets.length > 0) {
+        setActiveSheetId(updatedSheets[0].id);
+      } else {
+        const defaultSheet = {
+          id: 'sheet_default',
+          name: "Live Workspace",
+          rowData: []
+        };
+        updatedSheets = [defaultSheet];
+        setActiveSheetId(defaultSheet.id);
+      }
+    }
+    
+    setSheets(updatedSheets);
+    toast.success(`Deleted workspace for ${sheetToDelete.name}`);
+    await saveWorkspaceData(updatedSheets);
+  };
+
 
 
   const formatDateForInput = (val: string) => {
@@ -165,6 +194,8 @@ export function ExcelWorkspace() {
           }
         }
         if (changed) await refreshDoctors();
+      } else {
+        await writeData("excelData", null);
       }
     } catch (err: any) {
       console.error(err);
@@ -402,10 +433,20 @@ export function ExcelWorkspace() {
       
       {/* Spreadsheet Editor Area */}
       <div className="flex-1 w-full relative p-4 min-h-0 flex flex-col">
-        <div className="mb-3 pl-2">
+        <div className="mb-3 pl-2 flex items-center justify-between">
           <h2 className="text-lg font-bold text-white tracking-wide">
             {activeSheet?.name ? `Doctor: ${activeSheet.name}` : "No Doctor Selected"}
           </h2>
+          {activeSheet && (
+            <button
+              onClick={() => handleDeleteSheet(activeSheet.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+              title="Delete this workspace"
+            >
+              <Trash2 size={16} />
+              Delete Doctor Workspace
+            </button>
+          )}
         </div>
         <div className="overflow-x-auto overflow-y-auto flex-1 border border-panel-border rounded-lg bg-black/20 custom-scrollbar">
           <table className="w-full text-sm text-left relative">

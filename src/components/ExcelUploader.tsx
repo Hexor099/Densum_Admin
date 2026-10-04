@@ -67,7 +67,14 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
            const excelRows = result.data[sheetName] || [];
            const existingRows = existingCloudData[sheetName] || [];
            
-           const getRowKey = (r: any) => `${String(r['Patient Name']||'').toLowerCase().trim()}_${String(r['Received Date']||'').toLowerCase().trim()}_${String(r['Work material']||'').toLowerCase().trim()}_${String(r['Tooth No']||'').toLowerCase().trim()}_${String(r['Units']||'').toLowerCase().trim()}`;
+           const getRowKey = (r: any) => {
+             const name = String(r['Patient Name'] || '').toLowerCase().trim();
+             const date = formatDateForDisplay(r['Received Date']);
+             const material = String(r['Work material'] || '').toLowerCase().trim();
+             const tooth = String(r['Tooth No'] || '').toLowerCase().replace(/\s+/g, '');
+             const units = String(r['Units'] || '').toLowerCase().trim();
+             return `${name}_${date}_${material}_${tooth}_${units}`;
+           };
            
            const existingMap = new Map();
            existingRows.forEach((r: any) => existingMap.set(getRowKey(r), r));
@@ -186,7 +193,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         const toothNoRaw = String(getVal(row, ['tooth no', 'tooth no.']) || '').toLowerCase().trim();
         const isFullMouth = toothNoRaw.includes('full mouth') || toothNoRaw === 'fm';
         const docPrices = doctorsData[sheet]?.prices || {};
-        const rate = Number(docPrices[material]) || 0;
+        let rate = 0;
+        if (typeof docPrices[material] === 'number') {
+            rate = docPrices[material];
+        } else {
+            const found = Object.values(docPrices).find((p: any) => p && typeof p === 'object' && p.name === material);
+            if (found) rate = Number((found as any).rate) || 0;
+        }
         const totalAmount = isFullMouth ? rate : (units * rate);
         return { ...row, Rate: rate, Total: totalAmount };
       });
