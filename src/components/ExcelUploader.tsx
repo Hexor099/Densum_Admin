@@ -17,11 +17,11 @@ export interface ExcelUploaderProps {
 export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   const [allSheetsData, setAllSheetsData] = useState<Record<string, any[]> | null>(null);
   const [sheetNames, setSheetNames] = useState<string[]>([]);
-  const [currentSheet, setCurrentSheet] = useState<string>('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const { doctors: doctorsData, settings, refreshDoctors, refreshSettings, refreshLedger } = useStore();
+  const { doctors: doctorsData, settings, refreshDoctors, refreshSettings, refreshLedger, activeDoctorId, setActiveDoctorId } = useStore();
+  const currentSheet = activeDoctorId || 'All Doctors';
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
   const [searchMaterial, setSearchMaterial] = useState<string>('');
   
@@ -32,7 +32,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         setAllSheetsData(cloudData);
         const sheets = Object.keys(cloudData);
         setSheetNames(sheets);
-        if (sheets.length > 0) setCurrentSheet(sheets[0]);
+        if (sheets.length > 0 && !useStore.getState().activeDoctorId) useStore.getState().setActiveDoctorId(sheets[0]);
       }
     }
     loadCloudData();
@@ -136,8 +136,8 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           if (changed) await refreshDoctors();
         }
 
-        if (sortedSheetNames.length > 0 && !currentSheet) {
-          setCurrentSheet(sortedSheetNames[0]);
+        if (sortedSheetNames.length > 0 && !useStore.getState().activeDoctorId) {
+          setActiveDoctorId(sortedSheetNames[0]);
         }
 
         // Auto-save to cloud
@@ -169,7 +169,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         setAllSheetsData(cloudData);
         const sheets = Object.keys(cloudData);
         setSheetNames(sheets);
-        if (sheets.length > 0) setCurrentSheet(sheets[0]);
+        if (sheets.length > 0 && !useStore.getState().activeDoctorId) setActiveDoctorId(sheets[0]);
         toast.success("Data successfully loaded from the cloud!");
       } else {
         toast.info("No data found in the cloud.");
@@ -444,11 +444,11 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
               <label className="text-sm font-semibold text-foreground/70 uppercase block mb-2">Select Doctor Sheet:</label>
               <div className="relative max-w-md">
                 <select 
-                  value={currentSheet}
-                  onChange={e => setCurrentSheet(e.target.value)}
+                  value={currentSheet === 'All Doctors' ? '' : currentSheet}
+                  onChange={e => setActiveDoctorId(e.target.value)}
                   className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm appearance-none"
                 >
-                  <option value="All Doctors">All Doctors (Summary)</option>
+                  <option value="">All Doctors (Summary)</option>
                   {sheetNames.map(name => (
                     <option key={name} value={name}>{name}</option>
                   ))}
