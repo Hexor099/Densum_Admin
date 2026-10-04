@@ -82,12 +82,7 @@ export default function LedgerPage() {
     recoverMissingDoctors();
   }, []);
 
-  // TEMPORARY FIX FOR DR MOHD ASEEL
-  useEffect(() => {
-    import('@/lib/firebase').then(({ writeData }) => {
-      writeData('doctors/Dr Mohd Aseel/balance', 0).then(() => refreshDoctors());
-    });
-  }, []);
+
 
   useEffect(() => {
     if (Object.keys(doctors).length > 0 && activeDoctorId === null) {
