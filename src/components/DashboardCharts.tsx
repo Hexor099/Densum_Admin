@@ -13,13 +13,15 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { parseDateString, getVal } from '@/lib/utils';
+import { useStore } from '@/store/useStore';
 
 interface DashboardChartsProps {
   data?: Record<string, any[]> | null;
 }
 
 export function DashboardCharts({ data }: DashboardChartsProps) {
-  const [selectedDoc, setSelectedDoc] = useState<string>('');
+  const { activeDoctorId, setActiveDoctorId } = useStore();
+  const selectedDoc = activeDoctorId || '';
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [chartData, setChartData] = useState<any[]>([]);
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
@@ -188,7 +190,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
           <select 
             className="bg-black/40 border border-panel-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent flex-1 md:flex-none max-w-full"
             value={selectedDoc}
-            onChange={(e) => setSelectedDoc(e.target.value)}
+            onChange={(e) => setActiveDoctorId(e.target.value)}
           >
             <option value="">All Doctors</option>
             {doctors.map(d => <option key={d} value={d}>{d}</option>)}
