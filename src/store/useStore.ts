@@ -15,8 +15,10 @@ interface AppState {
   excelData: Record<string, any>;
   procuredData: Record<string, any>;
   isInitialized: boolean;
+  activeDoctorId: string | null;
   
   initializeStore: () => void;
+  setActiveDoctorId: (id: string | null) => void;
   refreshDoctors: () => Promise<void>;
   refreshSuppliers: () => Promise<void>;
   refreshCatalog: () => Promise<void>;
@@ -42,6 +44,9 @@ export const useStore = create<AppState>((set, get) => ({
   excelData: {},
   procuredData: {},
   isInitialized: false,
+  activeDoctorId: null,
+
+  setActiveDoctorId: (id) => set({ activeDoctorId: id }),
 
   initializeStore: () => {
     if (get().isInitialized) return;

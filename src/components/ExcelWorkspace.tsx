@@ -22,7 +22,7 @@ export function ExcelWorkspace() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { doctors, refreshDoctors } = useStore();
+  const { doctors, refreshDoctors, activeDoctorId, setActiveDoctorId } = useStore();
   const searchParams = useSearchParams();
   const [patientSearch, setPatientSearch] = useState('');
   
@@ -68,9 +68,14 @@ export function ExcelWorkspace() {
             if (urlDoctor) {
               const match = loadedSheets.find(s => s.name.toLowerCase() === urlDoctor.toLowerCase());
               if (match) targetSheetId = match.id;
+            } else if (useStore.getState().activeDoctorId) {
+              const match = loadedSheets.find(s => s.name === useStore.getState().activeDoctorId);
+              if (match) targetSheetId = match.id;
             }
             
             setActiveSheetId(targetSheetId);
+            const initialSheet = loadedSheets.find(s => s.id === targetSheetId);
+            if (initialSheet) useStore.getState().setActiveDoctorId(initialSheet.name);
             
             if (urlPatient) {
                setPatientSearch(urlPatient);
@@ -104,6 +109,7 @@ export function ExcelWorkspace() {
     };
     setSheets(prev => [...prev, newSheet]);
     setActiveSheetId(newSheet.id);
+    setActiveDoctorId(newName);
   };
 
   const handleTabSwitch = (id: string) => {
@@ -112,6 +118,8 @@ export function ExcelWorkspace() {
       return;
     }
     setActiveSheetId(id);
+    const sheet = sheets.find(s => s.id === id);
+    if (sheet) setActiveDoctorId(sheet.name);
   };
 
   const handleDeleteSheet = async (sheetId: string) => {
@@ -127,6 +135,7 @@ export function ExcelWorkspace() {
     if (sheetId === activeSheetId) {
       if (updatedSheets.length > 0) {
         setActiveSheetId(updatedSheets[0].id);
+        setActiveDoctorId(updatedSheets[0].name);
       } else {
         const defaultSheet = {
           id: 'sheet_default',
@@ -135,6 +144,7 @@ export function ExcelWorkspace() {
         };
         updatedSheets = [defaultSheet];
         setActiveSheetId(defaultSheet.id);
+        setActiveDoctorId(null);
       }
     }
     
@@ -233,10 +243,14 @@ export function ExcelWorkspace() {
         rowData: processedEntries
       };
       setActiveSheetId(newSheet.id);
+      setActiveDoctorId(doctorName);
       finalSheets = [...updatedSheets, newSheet];
     } else {
       const targetSheet = updatedSheets.find(s => s.name.toLowerCase() === doctorName.toLowerCase());
-      if (targetSheet) setActiveSheetId(targetSheet.id);
+      if (targetSheet) {
+        setActiveSheetId(targetSheet.id);
+        setActiveDoctorId(targetSheet.name);
+      }
       finalSheets = updatedSheets;
     }
     

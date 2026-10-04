@@ -7,12 +7,14 @@ import { fetchData, appendToList, writeData } from "@/lib/firebase";
 import { useStore } from "@/store/useStore";
 
 export default function JobWorkPage() {
-  const [selectedDoctor, setSelectedDoctor] = useState("");
   const [isAddingDoctor, setIsAddingDoctor] = useState(false);
   const [newDoctorName, setNewDoctorName] = useState("");
   
   const doctorsData = useStore(state => state.doctors);
   const procuredData = useStore(state => state.procuredData);
+  const activeDoctorId = useStore(state => state.activeDoctorId);
+  const setActiveDoctorId = useStore(state => state.setActiveDoctorId);
+  const selectedDoctor = activeDoctorId || "";
   
   const [receivedDate, setReceivedDate] = useState("");
   const [deliveredDate, setDeliveredDate] = useState("");
@@ -41,6 +43,11 @@ export default function JobWorkPage() {
     setStatus("Active");
     setWorkItems([{ toothNo: "", workMaterial: "", units: "" }]);
     setActiveSuggestionIndex(null);
+
+    // Set active doctor to first if none is selected
+    if (Object.keys(doctorsData || {}).length > 0 && !activeDoctorId) {
+      setActiveDoctorId(Object.keys(doctorsData || {})[0]);
+    }
 
     // Extract existing materials from doctors' prices to populate suggestions immediately
     const defaultMaterials = new Set<string>();
@@ -89,6 +96,7 @@ export default function JobWorkPage() {
         return;
       }
       finalDoctor = newDoctorName.trim();
+      setActiveDoctorId(finalDoctor);
     } else {
       if (!finalDoctor) {
         toast.error("Please select a doctor.");
@@ -173,7 +181,7 @@ export default function JobWorkPage() {
                 <div className="relative flex-1">
                   <select
                     value={selectedDoctor}
-                    onChange={(e) => setSelectedDoctor(e.target.value)}
+                    onChange={(e) => setActiveDoctorId(e.target.value)}
                     className="w-full bg-black/40 border border-panel-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-accent font-medium shadow-sm appearance-none"
                   >
                     <option value="" disabled>Select a doctor...</option>

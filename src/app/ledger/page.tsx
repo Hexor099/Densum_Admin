@@ -9,8 +9,8 @@ import { toast } from 'sonner';
 import { useStore } from '@/store/useStore';
 
 export default function LedgerPage() {
-  const { doctors, ledger, isInitialized, initializeStore, refreshDoctors, refreshLedger } = useStore();
-  const [selectedDocId, setSelectedDocId] = useState<string>('');
+  const { doctors, ledger, isInitialized, initializeStore, refreshDoctors, refreshLedger, activeDoctorId, setActiveDoctorId } = useStore();
+  const selectedDocId = activeDoctorId || '';
   const [paymentAmount, setPaymentAmount] = useState('');
   const [txType, setTxType] = useState<'Payment' | 'Bill' | 'Credit Note' | 'Debit Note'>('Payment');
   const [paymentMode, setPaymentMode] = useState('Cash');
@@ -90,10 +90,10 @@ export default function LedgerPage() {
   }, []);
 
   useEffect(() => {
-    if (Object.keys(doctors).length > 0 && !selectedDocId) {
-      setSelectedDocId(Object.keys(doctors)[0]);
+    if (Object.keys(doctors).length > 0 && !activeDoctorId) {
+      setActiveDoctorId(Object.keys(doctors)[0]);
     }
-  }, [doctors, selectedDocId]);
+  }, [doctors, activeDoctorId, setActiveDoctorId]);
 
   const selectedDoc = doctors[selectedDocId] || {};
   const transactions = ledger[selectedDocId] || [];
@@ -416,7 +416,7 @@ export default function LedgerPage() {
     
     await writeData(`doctors/${safeName}`, { balance: 0, prices: {} });
     await refreshDoctors();
-    setSelectedDocId(safeName);
+    setActiveDoctorId(safeName);
     toast.success(`${safeName} added successfully!`);
   };
 
@@ -468,7 +468,7 @@ export default function LedgerPage() {
               return (
                 <button 
                   key={docName}
-                  onClick={() => setSelectedDocId(docName)}
+                  onClick={() => setActiveDoctorId(docName)}
                   className={`w-full text-left p-3 rounded-xl border transition-all ${
                     selectedDocId === docName 
                       ? 'bg-accent/15 border-accent/50 shadow-[0_0_15px_rgba(0,194,255,0.1)]' 
