@@ -193,6 +193,8 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         const toothNoRaw = String(getVal(row, ['tooth no', 'tooth no.']) || '').toLowerCase().trim();
         const isFullMouth = toothNoRaw.includes('full mouth') || toothNoRaw === 'fm';
         const docPrices = doctorsData[sheet]?.prices || {};
+        const status = String(getVal(row, ['status']) || '').trim().toLowerCase();
+        
         let rate = 0;
         if (typeof docPrices[material] === 'number') {
             rate = docPrices[material];
@@ -200,7 +202,8 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             const found = Object.values(docPrices).find((p: any) => p && typeof p === 'object' && p.name === material);
             if (found) rate = Number((found as any).rate) || 0;
         }
-        const totalAmount = isFullMouth ? rate : (units * rate);
+        
+        const totalAmount = status === 'hold' ? 0 : (isFullMouth ? rate : (units * rate));
         return { ...row, Rate: rate, Total: totalAmount };
       });
     }
