@@ -45,7 +45,7 @@ export default function JobWorkPage() {
     setActiveSuggestionIndex(null);
 
     // Set active doctor to first if none is selected
-    if (Object.keys(doctorsData || {}).length > 0 && !activeDoctorId) {
+    if (Object.keys(doctorsData || {}).length > 0 && activeDoctorId === null) {
       setActiveDoctorId(Object.keys(doctorsData || {})[0]);
     }
 

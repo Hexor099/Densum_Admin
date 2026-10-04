@@ -90,7 +90,7 @@ export default function LedgerPage() {
   }, []);
 
   useEffect(() => {
-    if (Object.keys(doctors).length > 0 && !activeDoctorId) {
+    if (Object.keys(doctors).length > 0 && activeDoctorId === null) {
       setActiveDoctorId(Object.keys(doctors)[0]);
     }
   }, [doctors, activeDoctorId, setActiveDoctorId]);

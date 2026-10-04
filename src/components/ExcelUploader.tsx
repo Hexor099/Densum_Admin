@@ -32,7 +32,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         setAllSheetsData(cloudData);
         const sheets = Object.keys(cloudData);
         setSheetNames(sheets);
-        if (sheets.length > 0 && !useStore.getState().activeDoctorId) useStore.getState().setActiveDoctorId(sheets[0]);
+        if (sheets.length > 0 && useStore.getState().activeDoctorId === null) useStore.getState().setActiveDoctorId(sheets[0]);
       }
     }
     loadCloudData();
@@ -136,7 +136,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
           if (changed) await refreshDoctors();
         }
 
-        if (sortedSheetNames.length > 0 && !useStore.getState().activeDoctorId) {
+        if (sortedSheetNames.length > 0 && useStore.getState().activeDoctorId === null) {
           setActiveDoctorId(sortedSheetNames[0]);
         }
 
@@ -169,7 +169,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         setAllSheetsData(cloudData);
         const sheets = Object.keys(cloudData);
         setSheetNames(sheets);
-        if (sheets.length > 0 && !useStore.getState().activeDoctorId) setActiveDoctorId(sheets[0]);
+        if (sheets.length > 0 && useStore.getState().activeDoctorId === null) setActiveDoctorId(sheets[0]);
         toast.success("Data successfully loaded from the cloud!");
       } else {
         toast.info("No data found in the cloud.");
