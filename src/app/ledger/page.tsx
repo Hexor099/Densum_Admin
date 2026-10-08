@@ -415,6 +415,58 @@ export default function LedgerPage() {
     toast.success(`${safeName} added successfully!`);
   };
 
+  const renameDoctor = async () => {
+    const newName = prompt(`Enter the new name for ${selectedDocId}:`);
+    if (!newName || !newName.trim() || newName === selectedDocId) return;
+    
+    const safeName = newName.trim().replace(/[\.#$\[\]\/]/g, '');
+    
+    if (doctors[safeName]) {
+      toast.error("A doctor with this name already exists!");
+      return;
+    }
+
+    try {
+      const docData = doctors[selectedDocId];
+      const ledgerData = ledger[selectedDocId];
+
+      await writeData(`doctors/${safeName}`, docData);
+      if (ledgerData) {
+        await writeData(`ledger/${safeName}`, ledgerData);
+      }
+
+      await writeData(`doctors/${selectedDocId}`, null);
+      if (ledgerData) {
+        await writeData(`ledger/${selectedDocId}`, null);
+      }
+
+      await refreshDoctors();
+      await refreshLedger();
+      setActiveDoctorId(safeName);
+      toast.success(`Doctor renamed to ${safeName}`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to rename doctor");
+    }
+  };
+
+  const deleteDoctor = async () => {
+    if (!confirm(`Are you absolutely sure you want to delete ${selectedDocId} and ALL their ledger history? This cannot be undone.`)) return;
+
+    try {
+      await writeData(`doctors/${selectedDocId}`, null);
+      await writeData(`ledger/${selectedDocId}`, null);
+      
+      await refreshDoctors();
+      await refreshLedger();
+      setActiveDoctorId(null);
+      toast.success(`Deleted doctor ${selectedDocId}`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete doctor");
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -489,7 +541,13 @@ export default function LedgerPage() {
             {/* Header Action Card */}
             <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-white">{selectedDocId}</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-white">{selectedDocId}</h2>
+                  <div className="flex gap-2">
+                    <button onClick={renameDoctor} className="text-accent hover:text-accent/80 text-[10px] font-bold uppercase tracking-wider bg-accent/10 px-2 py-1 rounded">Rename</button>
+                    <button onClick={deleteDoctor} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-wider bg-red-400/10 px-2 py-1 rounded">Delete</button>
+                  </div>
+                </div>
                 {isEditingPhone ? (
                   <div className="flex items-center gap-2 mt-2">
                     <input 
