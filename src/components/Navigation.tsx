@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search, LogOut, ShieldCheck, Scale, Bell, ClipboardList, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Package, ReceiptIndianRupee, Settings, Search, LogOut, ShieldCheck, Scale, Bell, ClipboardList, CheckSquare, Table } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchData } from '@/lib/firebase';
 import { useStore } from '@/store/useStore';
@@ -12,7 +12,8 @@ import { useAuth, restrictedForStaff } from '@/components/AuthProvider';
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Workspace', href: '/workspace', icon: Package },
-  { name: 'Procured Works', href: '/procured-works', icon: CheckSquare },
+  { name: 'Job Workspace', href: '/job-workspace', icon: Table },
+  { name: 'Job Board', href: '/job-board', icon: CheckSquare },
   { name: 'Job Work Entry', href: '/job-work', icon: ClipboardList },
   { name: 'Ledger', href: '/ledger', icon: Users },
   { name: 'Aging Report', href: '/aging-report', icon: Users },
@@ -34,7 +35,7 @@ export function Navigation() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [searchData, setSearchData] = useState<{ doctors: any, catalog: any, expenses: any, excelData: any } | null>(null);
+  const [searchData, setSearchData] = useState<{ doctors: any, catalog: any, expenses: any, excelData: any, jobWorkspaceData: any } | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const storeDoctors = useStore((state) => state.doctors);
   const storeCatalog = useStore((state) => state.catalog);
@@ -45,7 +46,14 @@ export function Navigation() {
       try {
         const expenses = await fetchData('expenses');
         const excelData = await fetchData('excelData');
-        setSearchData({ doctors: storeDoctors, catalog: storeCatalog, expenses: expenses || [], excelData: excelData || {} });
+        const jobWorkspaceData = await fetchData('jobWorkspaceData');
+        setSearchData({ 
+          doctors: storeDoctors, 
+          catalog: storeCatalog, 
+          expenses: expenses || [], 
+          excelData: excelData || {},
+          jobWorkspaceData: jobWorkspaceData || {}
+        });
       } catch (e) {
         console.error("Failed to load search data", e);
       }
@@ -91,6 +99,30 @@ export function Navigation() {
                   title: String(patientName),
                   subtitle: `Doctor: ${docName}`,
                   href: '/workspace'
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+
+    // Patients (from jobWorkspaceData)
+    if (searchData.jobWorkspaceData) {
+      const seenJobPatients = new Set<string>();
+      Object.entries(searchData.jobWorkspaceData).forEach(([docName, rows]: [string, any]) => {
+        if (Array.isArray(rows)) {
+          rows.forEach((row: any) => {
+            const patientName = row['Patient Name'];
+            if (patientName && String(patientName).toLowerCase().includes(term)) {
+              const uniqueKey = `${docName}-${patientName}`;
+              if (!seenJobPatients.has(uniqueKey)) {
+                seenJobPatients.add(uniqueKey);
+                results.push({
+                  type: 'Job Patient',
+                  title: String(patientName),
+                  subtitle: `Job Workspace (${docName})`,
+                  href: '/job-workspace'
                 });
               }
             }
