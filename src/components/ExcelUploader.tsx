@@ -54,107 +54,52 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const result = await syncExcelData(formData);
       if (result.success) {
-        // Fetch existing cloud data to merge with
-        const existingCloudData = await fetchData('excelData') || {};
-        const mergedData: Record<string, any[]> = {};
-        
-        const allSheetNames = new Set([...Object.keys(result.data), ...Object.keys(existingCloudData)]);
-        
-        for (const sheetName of Array.from(allSheetNames)) {
-           const excelRows = result.data[sheetName] || [];
-           const existingRows = existingCloudData[sheetName] || [];
-           
-           const getRowKey = (r: any) => {
-             const name = String(r['Patient Name'] || '').toLowerCase().trim();
-             // Normalize date to canonical ISO format (YYYY-MM-DD) so Excel rows
-             // and existing DB rows always produce the same key regardless of how
-             // the date string was originally stored (dd-mm-yyyy, M/D/YY, etc.)
-             const parsedDate = parseDateString(r['Received Date']);
-             const date = parsedDate.getTime() !== 0
-               ? parsedDate.toISOString().split('T')[0]
-               : String(r['Received Date'] || '').trim().toLowerCase();
-             const material = String(r['Work material'] || '').toLowerCase().trim();
-             const tooth = String(r['Tooth No'] || '').toLowerCase().replace(/\s+/g, '');
-             const units = String(r['Units'] || '').toLowerCase().trim();
-             return `${name}_${date}_${material}_${tooth}_${units}`;
-           };
-           
-           const existingMap = new Map();
-           existingRows.forEach((r: any) => existingMap.set(getRowKey(r), r));
-           
-           const finalRows = [];
-           
-           for (const excelRow of excelRows) {
-               const key = getRowKey(excelRow);
-               const existingRow = existingMap.get(key);
-               
-               if (existingRow) {
-                   // Merge and preserve user edits
-                   finalRows.push({
-                       ...excelRow,
-                       '_id': existingRow['_id'] || Math.random().toString(36).substring(2, 11),
-                       'Shade': existingRow['Shade'] || excelRow['Shade'] || '',
-                       'Location': existingRow['Location'] || excelRow['Location'] || '',
-                       'Status': existingRow['Status'] && existingRow['Status'] !== 'Active' && existingRow['Status'] !== 'Procured' ? existingRow['Status'] : excelRow['Status'] || 'Active',
-                       'Delivered Date': existingRow['Delivered Date'] && existingRow['Delivered Date'] !== 'Not Delivered' ? existingRow['Delivered Date'] : excelRow['Delivered Date'] || 'Not Delivered',
-                   });
-                   existingMap.delete(key);
-               } else {
-                   // Give it a fresh ID
-                   finalRows.push({
-                     ...excelRow,
-                     _id: Math.random().toString(36).substring(2, 11)
-                   });
-               }
-           }
-           
-           // Add remaining existing rows that weren't matched in Excel (e.g., manually added in Workspace)
-           existingMap.forEach((r: any) => {
-               finalRows.push(r);
-           });
-           
-           // Sort by Received Date descending
-           finalRows.sort((a, b) => {
-             const dateA = parseDateString(getVal(a, ['received date']) || '').getTime();
-             const dateB = parseDateString(getVal(b, ['received date']) || '').getTime();
-             return dateB - dateA;
-           });
-           
-           mergedData[sheetName] = finalRows;
+        // ── Clean overwrite: no merging, no duplicates ──────────────────────
+        // Assign a fresh _id to every row and sort by Received Date descending.
+        const freshData: Record<string, any[]> = {};
+        const sheetNames = Object.keys(result.data).sort();
+
+        for (const sheetName of sheetNames) {
+          const rows = (result.data[sheetName] || []).map((row: any) => ({
+            ...row,
+            _id: Math.random().toString(36).substring(2, 11),
+          }));
+
+          rows.sort((a: any, b: any) => {
+            const dateA = parseDateString(getVal(a, ['received date']) || '').getTime();
+            const dateB = parseDateString(getVal(b, ['received date']) || '').getTime();
+            return dateB - dateA;
+          });
+
+          freshData[sheetName] = rows;
         }
 
-        setAllSheetsData(mergedData);
-        const sortedSheetNames = Array.from(allSheetNames).sort();
-        setSheetNames(sortedSheetNames);
-        
         // Auto-create missing doctors in Firebase
-        if (sortedSheetNames.length > 0) {
-          let changed = false;
-          for (const docName of sortedSheetNames) {
-            if (!doctorsData[docName]) {
-               changed = true;
-               await writeData(`doctors/${docName}`, { balance: 0, prices: {} });
-            }
+        for (const docName of sheetNames) {
+          if (!doctorsData[docName]) {
+            await writeData(`doctors/${docName}`, { balance: 0, prices: {} });
           }
-          if (changed) await refreshDoctors();
+        }
+        await refreshDoctors();
+
+        if (sheetNames.length > 0 && useStore.getState().activeDoctorId === null) {
+          setActiveDoctorId(sheetNames[0]);
         }
 
-        if (sortedSheetNames.length > 0 && useStore.getState().activeDoctorId === null) {
-          setActiveDoctorId(sortedSheetNames[0]);
-        }
-
-        // Auto-save to cloud
+        // Wipe old data and write fresh
         try {
-          const res = await writeData('excelData', mergedData);
+          const res = await writeData('excelData', freshData);
           if (res.success) {
-            toast.success("Excel data successfully synced and merged! Your edits were preserved.");
+            setAllSheetsData(freshData);
+            setSheetNames(sheetNames);
+            toast.success(`Excel imported cleanly! ${sheetNames.length} doctor sheet(s) saved to database.`);
           } else {
-            toast.error("Failed to write to database. It might be too large or contain invalid characters.");
+            toast.error("Failed to write to database. File may be too large or contain invalid characters.");
           }
-        } catch(err: any) {
+        } catch (err: any) {
           toast.error("Failed to save to cloud: " + (err.message || "Unknown error"));
         }
       } else {
