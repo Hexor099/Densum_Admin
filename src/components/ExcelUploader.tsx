@@ -69,7 +69,13 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
            
            const getRowKey = (r: any) => {
              const name = String(r['Patient Name'] || '').toLowerCase().trim();
-             const date = formatDateForDisplay(r['Received Date']);
+             // Normalize date to canonical ISO format (YYYY-MM-DD) so Excel rows
+             // and existing DB rows always produce the same key regardless of how
+             // the date string was originally stored (dd-mm-yyyy, M/D/YY, etc.)
+             const parsedDate = parseDateString(r['Received Date']);
+             const date = parsedDate.getTime() !== 0
+               ? parsedDate.toISOString().split('T')[0]
+               : String(r['Received Date'] || '').trim().toLowerCase();
              const material = String(r['Work material'] || '').toLowerCase().trim();
              const tooth = String(r['Tooth No'] || '').toLowerCase().replace(/\s+/g, '');
              const units = String(r['Units'] || '').toLowerCase().trim();
@@ -180,6 +186,167 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
       setIsSyncing(false);
     }
   };
+
+  // ─── Duplicate preview modal state ────────────────────────────────────────
+  interface DupGroup {
+    type: 'exact' | 'near';
+    sheetName: string;
+    rows: any[];          // first = suggested keeper
+    daysDiff?: number;    // for near groups
+  }
+  const [dupGroups, setDupGroups] = useState<DupGroup[]>([]);
+  const [dupModalOpen, setDupModalOpen] = useState(false);
+  // rowKey: `${sheetName}__${rowIndex}` → checked means "mark for removal"
+  const [markedForRemoval, setMarkedForRemoval] = useState<Set<string>>(new Set());
+
+  // ─── Phase 1: scan & preview ───────────────────────────────────────────────
+  const handleFindDuplicates = async () => {
+    setIsSyncing(true);
+    try {
+      const cloudData: Record<string, any[]> = await fetchData('excelData') || {};
+
+      const getCanonicalKey = (r: any) => {
+        const name  = String(r['Patient Name']  || '').toLowerCase().trim();
+        const parsedDate = parseDateString(r['Received Date']);
+        const date  = parsedDate.getTime() !== 0
+          ? parsedDate.toISOString().split('T')[0]
+          : String(r['Received Date'] || '').trim().toLowerCase();
+        const mat   = String(r['Work material'] || '').toLowerCase().trim();
+        const tooth = String(r['Tooth No']      || '').toLowerCase().replace(/\s+/g, '');
+        const units = String(r['Units']         || '').toLowerCase().trim();
+        return `${name}_${date}_${mat}_${tooth}_${units}`;
+      };
+
+      // Near-match key (ignores date & units — used for fuzzy grouping)
+      const getNearKey = (r: any) => {
+        const name  = String(r['Patient Name']  || '').toLowerCase().trim();
+        const mat   = String(r['Work material'] || '').toLowerCase().trim();
+        const tooth = String(r['Tooth No']      || '').toLowerCase().replace(/\s+/g, '');
+        return `${name}__${mat}__${tooth}`;
+      };
+
+      const NEAR_DAYS = 14; // rows within this many days are flagged as "near-duplicate"
+
+      const found: DupGroup[] = [];
+      const defaultMarked = new Set<string>();
+
+      for (const sheetName of Object.keys(cloudData)) {
+        const rows: any[] = Array.isArray(cloudData[sheetName]) ? cloudData[sheetName] : [];
+
+        // --- Exact duplicates ---
+        const exactSeen = new Map<string, { rowIdx: number }>();
+        const exactGroups = new Map<string, number[]>(); // key → [indices]
+        rows.forEach((r, i) => {
+          const k = getCanonicalKey(r);
+          if (!exactSeen.has(k)) {
+            exactSeen.set(k, { rowIdx: i });
+            exactGroups.set(k, [i]);
+          } else {
+            exactGroups.get(k)!.push(i);
+          }
+        });
+        exactGroups.forEach((indices, _k) => {
+          if (indices.length < 2) return;
+          const groupRows = indices.map(i => ({ ...rows[i], __origIdx: i }));
+          found.push({ type: 'exact', sheetName, rows: groupRows });
+          // All but the first are pre-checked for removal
+          indices.slice(1).forEach(i =>
+            defaultMarked.add(`${sheetName}__${i}`)
+          );
+        });
+
+        // --- Near duplicates (same name+material+tooth, date within NEAR_DAYS) ---
+        const nearBuckets = new Map<string, number[]>();
+        rows.forEach((r, i) => {
+          const nk = getNearKey(r);
+          if (!nearBuckets.has(nk)) nearBuckets.set(nk, []);
+          nearBuckets.get(nk)!.push(i);
+        });
+        nearBuckets.forEach((indices) => {
+          if (indices.length < 2) return;
+          // Compare every pair
+          for (let a = 0; a < indices.length; a++) {
+            for (let b = a + 1; b < indices.length; b++) {
+              const ia = indices[a], ib = indices[b];
+              // Skip if already flagged as exact duplicate
+              if (defaultMarked.has(`${sheetName}__${ib}`)) continue;
+              const dateA = parseDateString(rows[ia]['Received Date']);
+              const dateB = parseDateString(rows[ib]['Received Date']);
+              const diff  = Math.abs(dateA.getTime() - dateB.getTime()) / 86400000;
+              if (diff > 0 && diff <= NEAR_DAYS) {
+                // Only add the pair once
+                const alreadyAdded = found.some(
+                  g => g.type === 'near' && g.sheetName === sheetName &&
+                    g.rows.some(r2 => r2.__origIdx === ia) &&
+                    g.rows.some(r2 => r2.__origIdx === ib)
+                );
+                if (!alreadyAdded) {
+                  found.push({
+                    type: 'near',
+                    sheetName,
+                    rows: [rows[ia], rows[ib]].map((r, ri) => ({ ...r, __origIdx: [ia,ib][ri] })),
+                    daysDiff: Math.round(diff),
+                  });
+                  // Near-dups are NOT pre-checked — user must decide
+                }
+              }
+            }
+          }
+        });
+      }
+
+      if (found.length === 0) {
+        toast.success('No duplicates or near-duplicates found — your database is clean!');
+        setIsSyncing(false);
+        return;
+      }
+
+      setDupGroups(found);
+      setMarkedForRemoval(defaultMarked);
+      setDupModalOpen(true);
+    } catch (err: any) {
+      toast.error('Scan error: ' + (err.message || 'Unknown'));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // ─── Phase 2: commit removal of checked rows ───────────────────────────────
+  const handleCommitRemoval = async () => {
+    if (markedForRemoval.size === 0) {
+      toast.info('Nothing is checked for removal.');
+      return;
+    }
+    if (!confirm(`Remove ${markedForRemoval.size} selected row(s) from Firebase? This cannot be undone.`)) return;
+
+    setIsSyncing(true);
+    try {
+      const cloudData: Record<string, any[]> = await fetchData('excelData') || {};
+      const cleaned: Record<string, any[]> = {};
+
+      for (const sheetName of Object.keys(cloudData)) {
+        const rows: any[] = Array.isArray(cloudData[sheetName]) ? cloudData[sheetName] : [];
+        cleaned[sheetName] = rows.filter((_r, i) => !markedForRemoval.has(`${sheetName}__${i}`));
+      }
+
+      const res = await writeData('excelData', cleaned);
+      if (res.success) {
+        setAllSheetsData(cleaned);
+        setSheetNames(Object.keys(cleaned));
+        setDupModalOpen(false);
+        setDupGroups([]);
+        setMarkedForRemoval(new Set());
+        toast.success(`Removed ${markedForRemoval.size} row(s) from the database.`);
+      } else {
+        toast.error('Failed to write cleaned data back to Firebase.');
+      }
+    } catch (err: any) {
+      toast.error('Removal error: ' + (err.message || 'Unknown'));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
 
   const [allEnhancedData, setAllEnhancedData] = useState<Record<string, any[]>>({});
 
@@ -422,6 +589,15 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             Load from Cloud
           </button>
           <button 
+            onClick={handleFindDuplicates}
+            disabled={isSyncing}
+            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-yellow-500/20 text-yellow-400 font-medium rounded-lg hover:bg-yellow-500/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Scan the database and preview duplicate rows before deleting"
+          >
+            <CheckCircle2 size={18} className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+            Find Duplicates
+          </button>
+          <button 
             onClick={handleClearAllLedgers}
             disabled={isSyncing}
             className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base bg-red-500/20 text-red-400 font-medium rounded-lg hover:bg-red-500/30 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -586,6 +762,129 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             {sheetNames.length > 0 ? "No data found in the Excel file for this sheet." : "Upload an Excel file to begin."}
           </div>
         )
+      )}
+
+      {/* ── Duplicate Review Modal ─────────────────────────────────────────── */}
+      {dupModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#0d1a26] border border-panel-border rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-panel-border">
+              <div>
+                <h2 className="text-lg font-bold text-white">Duplicate Review</h2>
+                <p className="text-sm text-foreground/60 mt-0.5">
+                  Review all matches below. <span className="text-red-400 font-medium">Exact duplicates</span> are pre-checked.&nbsp;
+                  <span className="text-yellow-400 font-medium">Near-duplicates</span> (within 14 days) are unchecked — decide manually.
+                </p>
+              </div>
+              <button onClick={() => setDupModalOpen(false)} className="text-foreground/50 hover:text-white transition-colors text-2xl leading-none">&times;</button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6 custom-scrollbar">
+              {dupGroups.map((group, gi) => {
+                const isExact = group.type === 'exact';
+                return (
+                  <div key={gi} className={`rounded-xl border p-4 ${isExact ? 'border-red-500/40 bg-red-500/5' : 'border-yellow-500/40 bg-yellow-500/5'}`}>
+                    {/* Group header */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isExact ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                        {isExact ? '🔴 EXACT DUPLICATE' : `🟡 NEAR-DUPLICATE (${group.daysDiff}d apart)`}
+                      </span>
+                      <span className="text-sm text-foreground/60">Doctor: <span className="text-white font-medium">{group.sheetName}</span></span>
+                      <span className="text-sm text-foreground/60">{group.rows.length} rows</span>
+                    </div>
+
+                    {/* Row cards */}
+                    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(group.rows.length, 3)}, minmax(0,1fr))` }}>
+                      {group.rows.map((row, ri) => {
+                        const rowKey = `${group.sheetName}__${row.__origIdx}`;
+                        const isKeeper = ri === 0 && isExact; // first row is the suggested keeper for exact dups
+                        const checked = markedForRemoval.has(rowKey);
+                        return (
+                          <div key={ri} className={`rounded-lg border p-3 text-sm space-y-1.5 relative transition-all ${
+                            isKeeper
+                              ? 'border-green-500/50 bg-green-500/10'
+                              : checked
+                                ? 'border-red-500/50 bg-red-500/10 opacity-80'
+                                : 'border-panel-border bg-black/20'
+                          }`}>
+                            {/* Keep / Remove badge */}
+                            {isKeeper && (
+                              <span className="absolute top-2 right-2 text-[10px] bg-green-500/20 text-green-400 font-bold px-2 py-0.5 rounded-full">KEEP</span>
+                            )}
+                            {!isKeeper && (
+                              <label className="absolute top-2 right-2 flex items-center gap-1.5 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => {
+                                    setMarkedForRemoval(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(rowKey)) next.delete(rowKey); else next.add(rowKey);
+                                      return next;
+                                    });
+                                  }}
+                                  className="accent-red-500 w-4 h-4"
+                                />
+                                <span className={`text-[10px] font-bold ${checked ? 'text-red-400' : 'text-foreground/50'}`}>
+                                  {checked ? 'REMOVE' : 'KEEP'}
+                                </span>
+                              </label>
+                            )}
+
+                            {/* Row fields */}
+                            {[
+                              ['Patient', row['Patient Name']],
+                              ['Received', formatDateForDisplay(row['Received Date'])],
+                              ['Delivered', formatDateForDisplay(row['Delivered Date'])],
+                              ['Material', row['Work material']],
+                              ['Tooth', row['Tooth No']],
+                              ['Units', row['Units']],
+                              ['Status', row['Status']],
+                            ].map(([label, val]) => (
+                              <div key={label as string} className="flex gap-2">
+                                <span className="text-foreground/50 w-16 shrink-0">{label}:</span>
+                                <span className="text-white font-medium truncate">{String(val ?? '—')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-panel-border flex items-center justify-between gap-4">
+              <div className="text-sm text-foreground/60">
+                <span className="text-red-400 font-bold">{markedForRemoval.size}</span> row{markedForRemoval.size !== 1 ? 's' : ''} marked for removal
+                &nbsp;·&nbsp;
+                <span className="text-yellow-400 font-bold">{dupGroups.filter(g => g.type === 'near').length}</span> near-duplicate group{dupGroups.filter(g => g.type === 'near').length !== 1 ? 's' : ''} (review manually)
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setDupModalOpen(false); setDupGroups([]); setMarkedForRemoval(new Set()); }}
+                  className="px-5 py-2 rounded-lg bg-white/5 border border-panel-border text-foreground/70 hover:text-white transition-all text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCommitRemoval}
+                  disabled={markedForRemoval.size === 0 || isSyncing}
+                  className="px-5 py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30 transition-all text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Trash2 size={15} />
+                  Remove {markedForRemoval.size} Selected
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
       )}
     </div>
   );
