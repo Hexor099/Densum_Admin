@@ -20,7 +20,7 @@ interface DashboardChartsProps {
 }
 
 export function DashboardCharts({ data }: DashboardChartsProps) {
-  const { activeDoctorId, setActiveDoctorId } = useStore();
+  const { activeDoctorId, setActiveDoctorId, doctors } = useStore();
   const selectedDoc = activeDoctorId || '';
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [chartData, setChartData] = useState<any[]>([]);
@@ -35,8 +35,39 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
     return d.getTime() === 0 ? null : d;
   };
 
+  /**
+   * Compute job work amount for a row: units × rate.
+   * Rate is looked up from the doctor's custom prices by material name.
+   * Falls back to row.Total if already computed, or 0.
+   */
+  const getJobWorkAmount = (row: any, docName: string): number => {
+    const status = String(row['Status'] || row['status'] || '').trim().toLowerCase();
+    if (status === 'hold') return 0;
+
+    const units = Number(getVal(row, ['units'])) || 1;
+    const material = String(getVal(row, ['work material']) || '').trim();
+    const toothNoRaw = String(getVal(row, ['tooth no', 'tooth no.']) || '').toLowerCase().trim();
+    const isFullMouth = toothNoRaw.includes('full mouth') || toothNoRaw === 'fm';
+
+    const docPrices = doctors[docName]?.prices || {};
+    let rate = 0;
+    if (typeof docPrices[material] === 'number') {
+      rate = docPrices[material];
+    } else {
+      const found = Object.values(docPrices).find(
+        (p: any) => p && typeof p === 'object' && p.name === material
+      );
+      if (found) rate = Number((found as any).rate) || 0;
+    }
+
+    if (rate > 0) {
+      return isFullMouth ? rate : units * rate;
+    }
+    return Number(row.Total) || 0;
+  };
+
   // Compute all available doctors and a chronological list of months
-  const { doctors, months } = useMemo(() => {
+  const { doctors: docList, months } = useMemo(() => {
     if (!data) return { doctors: [], months: [] };
     const docs = Object.keys(data);
     
@@ -85,7 +116,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
         const d = extractDate(row);
         if (d) {
           const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
-          monthMap[mStr] = (monthMap[mStr] || 0) + (Number(row.Total) || 0);
+          monthMap[mStr] = (monthMap[mStr] || 0) + getJobWorkAmount(row, selectedDoc);
         }
       });
 
@@ -106,7 +137,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
           if (d) {
             const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
             if (mStr === selectedMonth) {
-              docMap[doc] = (docMap[doc] || 0) + (Number(row.Total) || 0);
+              docMap[doc] = (docMap[doc] || 0) + getJobWorkAmount(row, doc);
             }
           }
         });
@@ -129,7 +160,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
           const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
           if (mStr === selectedMonth) {
             const dayStr = d.getDate().toString();
-            dayMap[dayStr] = (dayMap[dayStr] || 0) + (Number(row.Total) || 0);
+            dayMap[dayStr] = (dayMap[dayStr] || 0) + getJobWorkAmount(row, selectedDoc);
           }
         }
       });
@@ -158,7 +189,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
           const d = extractDate(row);
           if (d) {
             const mStr = d.toLocaleString('default', { month: 'short', year: 'numeric' });
-            monthMap[mStr] = (monthMap[mStr] || 0) + (Number(row.Total) || 0);
+            monthMap[mStr] = (monthMap[mStr] || 0) + getJobWorkAmount(row, doc);
           }
         });
       });
@@ -193,7 +224,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
             onChange={(e) => setActiveDoctorId(e.target.value)}
           >
             <option value="">All Doctors</option>
-            {doctors.map(d => <option key={d} value={d}>{d}</option>)}
+            {docList.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
           
           <select 
