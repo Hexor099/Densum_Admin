@@ -76,7 +76,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
 
     let newChartData: any[] = [];
     
-    // 1. Doctor selected, NO month selected -> Show month-wise revenue for this doctor
+    // 1. Doctor selected, NO month selected -> Show month-wise job work done for this doctor
     if (selectedDoc && !selectedMonth) {
       const docData = data[selectedDoc] || [];
       const monthMap: Record<string, number> = {};
@@ -91,11 +91,11 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
 
       newChartData = months.map(m => ({
         name: m,
-        revenue: monthMap[m] || 0
+        jobWork: monthMap[m] || 0
       }));
       setChartType('line');
     }
-    // 2. Month selected, NO doctor selected -> Show doctor-wise revenue for this month
+    // 2. Month selected, NO doctor selected -> Show doctor-wise job work done for this month
     else if (!selectedDoc && selectedMonth) {
       const docMap: Record<string, number> = {};
       
@@ -114,11 +114,11 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
 
       newChartData = Object.keys(docMap).map(d => ({
         name: d,
-        revenue: docMap[d]
+        jobWork: docMap[d]
       }));
       setChartType('bar');
     }
-    // 3. Both selected -> Show daily revenue for this doctor in this month
+    // 3. Both selected -> Show daily job work done for this doctor in this month
     else if (selectedDoc && selectedMonth) {
       const docData = data[selectedDoc] || [];
       const dayMap: Record<string, number> = {};
@@ -145,12 +145,12 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
         const dayStr = (i + 1).toString();
         return {
           name: `${dayStr} ${monthName}`,
-          revenue: dayMap[dayStr] || 0
+          jobWork: dayMap[dayStr] || 0
         };
       });
       setChartType('line');
     }
-    // 4. Neither selected -> Show overall revenue month-wise for all doctors
+    // 4. Neither selected -> Show overall job work done month-wise for all doctors
     else {
       const monthMap: Record<string, number> = {};
       Object.keys(data).forEach(doc => {
@@ -164,7 +164,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
       });
       newChartData = months.map(m => ({
         name: m,
-        revenue: monthMap[m] || 0
+        jobWork: monthMap[m] || 0
       }));
       setChartType('line');
     }
@@ -184,7 +184,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
   return (
     <div className="bg-panel rounded-xl border border-panel-border p-6 shadow-lg h-[450px] flex flex-col w-full min-w-0">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
-        <h2 className="text-xl font-bold text-white">Revenue Analytics</h2>
+        <h2 className="text-xl font-bold text-white">Job Work Analytics</h2>
         
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <select 
@@ -222,11 +222,11 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0d1826', borderColor: '#1e293b', color: '#fff', borderRadius: '8px' }}
                   itemStyle={{ color: '#00a8e8' }}
-                  formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Revenue']}
+                  formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Job Work Done']}
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="revenue" 
+                  dataKey="jobWork" 
                   stroke="#00a8e8" 
                   strokeWidth={3}
                   activeDot={{ r: 8, fill: '#00c2ff', stroke: '#0d1826', strokeWidth: 2 }}
@@ -241,10 +241,10 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0d1826', borderColor: '#1e293b', color: '#fff', borderRadius: '8px' }}
                   itemStyle={{ color: '#4ade80' }}
-                  formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Revenue']}
+                  formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Job Work Done']}
                 />
                 <Bar 
-                  dataKey="revenue" 
+                  dataKey="jobWork" 
                   fill="#4ade80" 
                   radius={[4, 4, 0, 0]}
                   style={{ filter: 'drop-shadow(0px 0px 8px rgba(74,222,128,0.5))' }}

@@ -172,7 +172,7 @@ export default function Home() {
 
         <div className="bg-panel rounded-xl border border-panel-border p-2 sm:p-5 shadow-lg flex flex-col justify-center">
           <div className="flex items-center justify-between mb-1 sm:mb-3">
-            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm leading-tight break-words">Revenue</h3>
+            <h3 className="text-foreground/70 font-semibold text-[9px] sm:text-sm leading-tight break-words">Job Work Done</h3>
             <TrendingUp size={16} className="text-green-400 hidden sm:block sm:w-[18px] sm:h-[18px]" />
           </div>
           <div className="text-sm sm:text-2xl font-bold text-green-400">₹{kpis.thisMonthRevenue.toLocaleString()}</div>
@@ -218,7 +218,7 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="font-semibold text-white">{doc.name}</p>
-                    <p className="text-xs text-foreground/60">{doc.cases} Cases this month</p>
+                    <p className="text-xs text-foreground/60">{doc.cases} Jobs</p>
                   </div>
                 </div>
                 <div className="font-bold text-accent-glow">{doc.revenue}</div>
