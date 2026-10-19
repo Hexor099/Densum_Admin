@@ -315,7 +315,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             if (found) rate = Number((found as any).rate) || 0;
         }
         
-        const totalAmount = status === 'hold' ? 0 : (isFullMouth ? rate : (units * rate));
+        const totalAmount = status === 'hold' ? 0 : (units * rate);
         return { ...row, Rate: rate, Total: totalAmount };
       });
     }

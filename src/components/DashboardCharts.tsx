@@ -61,7 +61,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
     }
 
     if (rate > 0) {
-      return isFullMouth ? rate : units * rate;
+      return units * rate;
     }
     return Number(row.Total) || 0;
   };
