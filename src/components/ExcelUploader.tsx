@@ -300,7 +300,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     const enhanced: Record<string, any[]> = {};
     for (const sheet of Object.keys(allSheetsData)) {
       enhanced[sheet] = allSheetsData[sheet].map(row => {
-        const units = Number(getVal(row, ['units'])) || 0;
+        const units = Number(getVal(row, ['units'])) || 1;
         const material = String(getVal(row, ['work material']) || '').trim();
         const toothNoRaw = String(getVal(row, ['tooth no', 'tooth no.']) || '').toLowerCase().trim();
         const isFullMouth = toothNoRaw.includes('full mouth') || toothNoRaw === 'fm';
