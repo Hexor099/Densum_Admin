@@ -300,17 +300,22 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     const enhanced: Record<string, any[]> = {};
     for (const sheet of Object.keys(allSheetsData)) {
       enhanced[sheet] = allSheetsData[sheet].map(row => {
+        const toothVal = String(getVal(row, ['tooth no', 'tooth no.', 'tooth', 'teeth']) || '').trim();
+        const patientName = String(getVal(row, ['patient name', 'patient']) || '').trim();
+        const receivedDate = String(getVal(row, ['received date', 'date', 'order date']) || '').trim();
+        const deliveredDate = String(getVal(row, ['delivered date', 'delivery date']) || '').trim();
+        const material = String(getVal(row, ['work material', 'material', 'work']) || '').trim();
+        const status = String(getVal(row, ['status']) || 'Active').trim();
+
         let rawUnits = getVal(row, ['units', 'unit', 'qty', 'quantity', 'nos', 'count']);
         let units = Number(rawUnits);
         if (isNaN(units) || units <= 0) {
-          const toothStr = String(getVal(row, ['tooth no', 'tooth no.', 'tooth', 'teeth']) || '').trim();
-          const matches = toothStr.match(/\d+/g) || [];
+          const matches = toothVal.match(/\d+/g) || [];
           units = matches.length > 0 ? matches.length : 1;
         }
 
-        const material = String(getVal(row, ['work material', 'material', 'work']) || '').trim();
         const docPrices = doctorsData[sheet]?.prices || {};
-        const status = String(getVal(row, ['status']) || '').trim().toLowerCase();
+        const statusLower = status.toLowerCase();
         
         let rate = 0;
         if (typeof docPrices[material] === 'number') {
@@ -320,8 +325,30 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
             if (found) rate = Number((found as any).rate) || 0;
         }
         
-        const totalAmount = status === 'hold' ? 0 : (units * rate);
-        return { ...row, Units: units, Rate: rate, Total: totalAmount };
+        const totalAmount = statusLower === 'hold' ? 0 : (units * rate);
+
+        // Normalize keys so malformed variants like 'Tooth No,' don't appear as extra columns
+        const cleanRow: Record<string, any> = { ...row };
+        const cleanStr = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const canonicalKeys = ['patientname', 'receiveddate', 'delivereddate', 'toothno', 'workmaterial', 'units', 'status', 'rate', 'total'];
+        Object.keys(cleanRow).forEach(k => {
+          if (canonicalKeys.includes(cleanStr(k))) {
+            delete cleanRow[k];
+          }
+        });
+
+        return { 
+          ...cleanRow,
+          'Patient Name': patientName || row['Patient Name'],
+          'Received Date': receivedDate || row['Received Date'],
+          'Delivered Date': deliveredDate || row['Delivered Date'] || 'Not Delivered',
+          'Tooth No': toothVal,
+          'Work material': material,
+          'Units': units,
+          'Status': status,
+          Rate: rate, 
+          Total: totalAmount 
+        };
       });
     }
     setAllEnhancedData(enhanced);

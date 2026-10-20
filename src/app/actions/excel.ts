@@ -39,16 +39,23 @@ export async function syncExcelData(formData: FormData) {
           if (key.startsWith('__EMPTY')) continue;
           if (key.trim().toLowerCase() === 'fitted') continue;
           
-          let safeKey = key.replace(/\./g, '').replace(/[#$\[\]]/g, '').trim();
-          
-          // Normalize known headers to exact casing required by the app
-          const upperKey = safeKey.toUpperCase();
-          if (upperKey === 'DELIVERED DATE' || upperKey === 'DELIVERY DATE' || upperKey === 'DELIVER DATE') safeKey = 'Delivered Date';
-          else if (upperKey === 'RECEIVED DATE' || upperKey === 'RECEIVE DATE' || upperKey === 'DATE') safeKey = 'Received Date';
-          else if (upperKey === 'PATIENT NAME' || upperKey === 'PATIENT') safeKey = 'Patient Name';
-          else if (upperKey === 'TOOTH NO' || upperKey === 'TOOTH NO.' || upperKey === 'TOOTH') safeKey = 'Tooth No';
-          else if (upperKey === 'WORK MATERIAL') safeKey = 'Work material';
-          else if (['UNITS', 'UNIT', 'QTY', 'QUANTITY', 'NOS', 'COUNT'].includes(upperKey)) safeKey = 'Units';
+          let safeKey = key.replace(/[#$\[\]\/]/g, '').trim();
+          const cleanKey = safeKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          // Normalize known headers to exact casing required by the app (completely generic, handles trailing punctuation like commas, dots, colons)
+          if (cleanKey === 'delivereddate' || cleanKey === 'deliverydate' || cleanKey === 'deliverdate' || cleanKey === 'duedate') {
+            safeKey = 'Delivered Date';
+          } else if (cleanKey === 'receiveddate' || cleanKey === 'receivedate' || cleanKey === 'date' || cleanKey === 'orderdate') {
+            safeKey = 'Received Date';
+          } else if (cleanKey === 'patientname' || cleanKey === 'patient') {
+            safeKey = 'Patient Name';
+          } else if (cleanKey === 'toothno' || cleanKey === 'tooth' || cleanKey === 'teeth' || cleanKey === 'teethno' || cleanKey === 'toothnum' || cleanKey === 'toothnumber') {
+            safeKey = 'Tooth No';
+          } else if (cleanKey === 'workmaterial' || cleanKey === 'material' || cleanKey === 'work') {
+            safeKey = 'Work material';
+          } else if (['units', 'unit', 'qty', 'quantity', 'nos', 'count', 'noofunits', 'totalunits'].includes(cleanKey)) {
+            safeKey = 'Units';
+          }
           
           newRow[safeKey] = row[key];
         }

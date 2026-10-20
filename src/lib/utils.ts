@@ -9,14 +9,26 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Case-insensitive key accessor for Excel row objects.
- * Finds the first key in `row` that matches any of `possibleKeys`.
+ * Case-insensitive and punctuation-tolerant key accessor for Excel row objects.
+ * Finds the first key in `row` that matches any of `possibleKeys`, prioritizing non-empty values.
  */
 export function getVal(row: Record<string, any>, possibleKeys: string[]): any {
-  const foundKey = Object.keys(row).find(k =>
-    possibleKeys.some(pk => k.trim().toLowerCase() === pk.toLowerCase())
+  if (!row || typeof row !== 'object') return undefined;
+
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const matchingKeys = Object.keys(row).filter(k =>
+    possibleKeys.some(pk => k.trim().toLowerCase() === pk.trim().toLowerCase() || clean(k) === clean(pk))
   );
-  return foundKey ? row[foundKey] : undefined;
+
+  // Return the first matching key with a non-empty, non-null value
+  for (const k of matchingKeys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
+      return row[k];
+    }
+  }
+
+  return matchingKeys.length > 0 ? row[matchingKeys[0]] : undefined;
 }
 
 export function parsePalmerNotation(teethStr: string) {
