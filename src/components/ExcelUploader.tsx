@@ -300,10 +300,15 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
     const enhanced: Record<string, any[]> = {};
     for (const sheet of Object.keys(allSheetsData)) {
       enhanced[sheet] = allSheetsData[sheet].map(row => {
-        const units = Number(getVal(row, ['units'])) || 1;
-        const material = String(getVal(row, ['work material']) || '').trim();
-        const toothNoRaw = String(getVal(row, ['tooth no', 'tooth no.']) || '').toLowerCase().trim();
-        const isFullMouth = toothNoRaw.includes('full mouth') || toothNoRaw === 'fm';
+        let rawUnits = getVal(row, ['units', 'unit', 'qty', 'quantity', 'nos', 'count']);
+        let units = Number(rawUnits);
+        if (isNaN(units) || units <= 0) {
+          const toothStr = String(getVal(row, ['tooth no', 'tooth no.', 'tooth', 'teeth']) || '').trim();
+          const matches = toothStr.match(/\d+/g) || [];
+          units = matches.length > 0 ? matches.length : 1;
+        }
+
+        const material = String(getVal(row, ['work material', 'material', 'work']) || '').trim();
         const docPrices = doctorsData[sheet]?.prices || {};
         const status = String(getVal(row, ['status']) || '').trim().toLowerCase();
         
@@ -316,7 +321,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         }
         
         const totalAmount = status === 'hold' ? 0 : (units * rate);
-        return { ...row, Rate: rate, Total: totalAmount };
+        return { ...row, Units: units, Rate: rate, Total: totalAmount };
       });
     }
     setAllEnhancedData(enhanced);
@@ -400,7 +405,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
   }) : null;
 
   const { totalFilteredUnits, totalFilteredAmount } = filteredData ? filteredData.reduce((acc, row) => {
-    const units = Number(getVal(row, ['units', 'unit'])) || 0;
+    const units = Number(getVal(row, ['units', 'unit', 'qty', 'quantity', 'nos', 'count'])) || 0;
     const amount = Number(getVal(row, ['total', 'amount'])) || 0;
     return {
       totalFilteredUnits: acc.totalFilteredUnits + units,
@@ -666,7 +671,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
                   {(() => {
                     const allKeys = Object.keys(filteredData[0]);
                     const preferredOrder = ['Patient Name', 'Received Date', 'Delivered Date', 'Tooth No', 'Work material', 'Units', 'Status', 'Rate', 'Total'];
-                    const finalOrder = [...preferredOrder, ...allKeys.filter(k => !preferredOrder.includes(k))];
+                    const finalOrder = [...preferredOrder, ...allKeys.filter(k => !preferredOrder.includes(k) && !['_id', 'id'].includes(k.toLowerCase()))];
                     return finalOrder.map(k => {
                       const isMobileHidden = ['Delivered Date', 'Tooth No', 'Rate', 'Total'].includes(k) || k.toLowerCase() === 'tooth no.';
                       return <th key={k} className={`px-4 py-3 whitespace-nowrap ${isMobileHidden ? 'hidden md:table-cell' : ''}`}>{k}</th>
@@ -680,7 +685,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
                     {(() => {
                       const allKeys = Object.keys(filteredData[0]);
                       const preferredOrder = ['Patient Name', 'Received Date', 'Delivered Date', 'Tooth No', 'Work material', 'Units', 'Status', 'Rate', 'Total'];
-                      const finalOrder = [...preferredOrder, ...allKeys.filter(k => !preferredOrder.includes(k))];
+                      const finalOrder = [...preferredOrder, ...allKeys.filter(k => !preferredOrder.includes(k) && !['_id', 'id'].includes(k.toLowerCase()))];
                       return finalOrder.map((k: string, j: number) => {
                         let valStr = String(row[k] ?? '');
                         if (k.toLowerCase().includes('date') && valStr) {

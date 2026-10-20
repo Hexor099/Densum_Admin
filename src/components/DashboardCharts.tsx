@@ -44,10 +44,14 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
     const status = String(row['Status'] || row['status'] || '').trim().toLowerCase();
     if (status === 'hold') return 0;
 
-    const units = Number(getVal(row, ['units'])) || 1;
-    const material = String(getVal(row, ['work material']) || '').trim();
-    const toothNoRaw = String(getVal(row, ['tooth no', 'tooth no.']) || '').toLowerCase().trim();
-    const isFullMouth = toothNoRaw.includes('full mouth') || toothNoRaw === 'fm';
+    let units = Number(getVal(row, ['units', 'unit', 'qty', 'quantity', 'nos', 'count']));
+    if (isNaN(units) || units <= 0) {
+      const toothStr = String(getVal(row, ['tooth no', 'tooth no.', 'tooth', 'teeth']) || '').trim();
+      const matches = toothStr.match(/\d+/g) || [];
+      units = matches.length > 0 ? matches.length : 1;
+    }
+
+    const material = String(getVal(row, ['work material', 'material', 'work']) || '').trim();
 
     const docPrices = doctors[docName]?.prices || {};
     let rate = 0;

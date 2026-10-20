@@ -79,7 +79,7 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
       (getVal(row, ['work material']) || '-').substring(0, 22),
       toothParsed.left,
       toothParsed.right,
-      String(getVal(row, ['units']) || 0),
+      String(getVal(row, ['units', 'unit', 'qty', 'quantity', 'nos', 'count']) || 1),
       (Number(row['Rate']) || 0).toFixed(2),
       total.toFixed(2),
       toothParsed.hasFDI

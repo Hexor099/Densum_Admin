@@ -23,15 +23,6 @@ export async function syncExcelData(formData: FormData) {
 
       const worksheet = workbook.Sheets[rawSheetName];
       
-      if (worksheet['!ref']) {
-        // Skip column F (FITTED) by deleting its cells
-        Object.keys(worksheet).forEach(key => {
-          if (key.match(/^F\d+$/)) {
-            delete worksheet[key];
-          }
-        });
-      }
-      
       const rawJson = xlsx.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'dd-mm-yyyy' });
       
       const json = rawJson.map((row: any) => {
@@ -46,6 +37,7 @@ export async function syncExcelData(formData: FormData) {
         };
         for (const key in row) {
           if (key.startsWith('__EMPTY')) continue;
+          if (key.trim().toLowerCase() === 'fitted') continue;
           
           let safeKey = key.replace(/\./g, '').replace(/[#$\[\]]/g, '').trim();
           
@@ -56,9 +48,20 @@ export async function syncExcelData(formData: FormData) {
           else if (upperKey === 'PATIENT NAME' || upperKey === 'PATIENT') safeKey = 'Patient Name';
           else if (upperKey === 'TOOTH NO' || upperKey === 'TOOTH NO.' || upperKey === 'TOOTH') safeKey = 'Tooth No';
           else if (upperKey === 'WORK MATERIAL') safeKey = 'Work material';
-          else if (upperKey === 'UNITS') safeKey = 'Units';
+          else if (['UNITS', 'UNIT', 'QTY', 'QUANTITY', 'NOS', 'COUNT'].includes(upperKey)) safeKey = 'Units';
           
           newRow[safeKey] = row[key];
+        }
+
+        // Clean & parse Units
+        const parsedUnits = Number(newRow['Units']);
+        if (!isNaN(parsedUnits) && parsedUnits > 0) {
+          newRow['Units'] = parsedUnits;
+        } else {
+          // If Units column was blank or omitted in Excel, infer from Tooth No count
+          const toothStr = String(newRow['Tooth No'] || '').trim();
+          const matches = toothStr.match(/\d+/g) || [];
+          newRow['Units'] = matches.length > 0 ? matches.length : 1;
         }
         
         // Auto-populate missing defaults
