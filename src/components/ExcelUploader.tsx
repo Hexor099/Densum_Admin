@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { generateInvoicePDF } from '@/lib/pdf';
 import { syncExcelData } from '@/app/actions/excel';
 import { fetchData, writeData, atomicIncrement, appendToList } from '@/lib/firebase';
-import { getVal, generateId, parseDateString, formatDateForDisplay } from '@/lib/utils';
+import { getVal, generateId, parseDateString, formatDateForDisplay, calculateItemTotal } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 import { PalmerCross } from './PalmerCross';
 
@@ -315,17 +315,7 @@ export function ExcelUploader({ onDataProcessed }: ExcelUploaderProps) {
         }
 
         const docPrices = doctorsData[sheet]?.prices || {};
-        const statusLower = status.toLowerCase();
-        
-        let rate = 0;
-        if (typeof docPrices[material] === 'number') {
-            rate = docPrices[material];
-        } else {
-            const found = Object.values(docPrices).find((p: any) => p && typeof p === 'object' && p.name === material);
-            if (found) rate = Number((found as any).rate) || 0;
-        }
-        
-        const totalAmount = statusLower === 'hold' ? 0 : (units * rate);
+        const { rate, total: totalAmount } = calculateItemTotal(material, units, docPrices, status);
 
         // Normalize keys so malformed variants like 'Tooth No,' don't appear as extra columns
         const cleanRow: Record<string, any> = { ...row };

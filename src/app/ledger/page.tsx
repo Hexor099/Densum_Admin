@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { User, MessageCircle, DollarSign, FileText, Plus, FileSpreadsheet, Calendar } from 'lucide-react';
 import { fetchData, writeData, atomicIncrement } from '@/lib/firebase';
 import { sendWhatsAppAction } from '@/app/actions/whatsapp';
-import { generateId } from '@/lib/utils';
+import { generateId, isFlexibleRPD } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useStore } from '@/store/useStore';
 
@@ -41,9 +41,9 @@ export default function LedgerPage() {
   useEffect(() => {
     async function loadExcelMaterials() {
       const excel = await fetchData('excelData');
+      const materials = new Set<string>(['Flexible RPD']);
       
       if (excel) {
-        const materials = new Set<string>();
         Object.values(excel).forEach((rows: any) => {
           if (Array.isArray(rows)) {
             rows.forEach(row => {
@@ -54,8 +54,8 @@ export default function LedgerPage() {
             });
           }
         });
-        setUniqueMaterials(Array.from(materials).sort());
       }
+      setUniqueMaterials(Array.from(materials).sort());
     }
     loadExcelMaterials();
   }, []);
@@ -726,11 +726,17 @@ export default function LedgerPage() {
                   {Object.entries(selectedDoc.prices || {}).map(([key, value]) => {
                     const mat = typeof value === 'object' && value !== null ? (value as any).name : key;
                     const rate = typeof value === 'object' && value !== null ? (value as any).rate : value;
+                    const isFlex = isFlexibleRPD(mat);
                     return (
                     <div key={key} className="flex items-center justify-between px-3 py-2 bg-black/30 rounded-md">
                       <span className="text-sm font-medium text-white">{mat}</span>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm text-accent font-bold">₹{String(rate)}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm text-accent font-bold">₹{String(rate)}</span>
+                          {isFlex && (
+                            <span className="text-[10px] text-foreground/50 font-normal">(+₹150/add. unit)</span>
+                          )}
+                        </div>
                         <button 
                            onClick={() => deletePrice(mat)}
                            className="text-red-400 hover:text-red-300 text-xs font-bold px-2"

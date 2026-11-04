@@ -134,6 +134,114 @@ export function formatDateForDisplay(val: string | undefined | null): string {
 
 // ─── TypeScript Interfaces ───────────────────────────────────────────────────
 
+/**
+ * Checks whether a material name corresponds to Flexible RPD.
+ * Handles variations like:
+ * - "Flexible RPD", "flexible rpd", "Flexible Rpd", "FLEXIBLE RPD"
+ * - "Flexible (RPD)", "Flexible - RPD", "Flexible R.P.D."
+ * - "RPD Flexible", "Flex RPD", "Flexible"
+ * (Explicitly excludes Denture)
+ */
+export function isFlexibleRPD(material: string | undefined | null): boolean {
+  if (!material) return false;
+  const str = String(material).trim().toLowerCase();
+  
+  // Do not include any Denture items
+  if (str.includes('denture')) return false;
+
+  const clean = str.replace(/[^a-z0-9]/g, '');
+  if (clean.includes('flexiblerpd') || clean.includes('rpdflexible')) return true;
+  if (str.includes('flexible') && str.includes('rpd')) return true;
+  if (str.includes('flex') && str.includes('rpd')) return true;
+  if (clean === 'flexible') return true;
+  
+  return false;
+}
+
+/**
+ * Finds custom material rate from a doctor's prices object.
+ * Tolerant to case and punctuation differences.
+ */
+export function findDoctorPrice(docPrices: Record<string, any> | undefined | null, material: string): number {
+  if (!docPrices || !material) return 0;
+
+  // Direct key match
+  if (typeof docPrices[material] === 'number') return docPrices[material];
+  if (docPrices[material] && typeof docPrices[material] === 'object' && docPrices[material].rate !== undefined) {
+    const r = Number(docPrices[material].rate);
+    if (!isNaN(r)) return r;
+  }
+
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cleanMaterial = clean(material);
+
+  // Case/punctuation-tolerant match on keys
+  for (const [key, val] of Object.entries(docPrices)) {
+    if (clean(key) === cleanMaterial) {
+      if (typeof val === 'number') return val;
+      if (val && typeof val === 'object' && val.rate !== undefined) {
+        const r = Number(val.rate);
+        if (!isNaN(r)) return r;
+      }
+    }
+  }
+
+  // Case/punctuation-tolerant match on val.name
+  for (const val of Object.values(docPrices)) {
+    if (val && typeof val === 'object' && val.name && clean(String(val.name)) === cleanMaterial) {
+      const r = Number(val.rate);
+      if (!isNaN(r)) return r;
+    }
+  }
+
+  // If this is Flexible RPD, check if any doctor price is also Flexible RPD variant
+  if (isFlexibleRPD(material)) {
+    for (const [key, val] of Object.entries(docPrices)) {
+      const name = val && typeof val === 'object' && val.name ? String(val.name) : key;
+      if (isFlexibleRPD(name)) {
+        const r = typeof val === 'number' ? val : Number(val?.rate);
+        if (!isNaN(r) && r > 0) return r;
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Calculates the rate and total amount for a lab work row.
+ * For Flexible RPD:
+ *  - 1 unit is ₹1,500 (or custom doctor base rate if configured)
+ *  - Each additional unit adds ₹150: baseRate + (units - 1) * 150
+ * For other materials:
+ *  - total = units * rate
+ */
+export function calculateItemTotal(
+  material: string,
+  units: number,
+  docPrices?: Record<string, any> | null,
+  status?: string
+): { rate: number; total: number } {
+  const isHold = (status || '').trim().toLowerCase() === 'hold';
+  const customRate = findDoctorPrice(docPrices, material);
+
+  if (isFlexibleRPD(material)) {
+    const baseRate = customRate > 0 ? customRate : 1500;
+    const rate = baseRate;
+    if (isHold || units <= 0) {
+      return { rate, total: 0 };
+    }
+    const total = baseRate + Math.max(0, units - 1) * 150;
+    return { rate, total };
+  }
+
+  const rate = customRate;
+  const total = isHold || units <= 0 ? 0 : (units * rate);
+  return { rate, total };
+}
+
+// ─── TypeScript Interfaces ───────────────────────────────────────────────────
+
 export interface Doctor {
   balance: number;
   phone?: string;

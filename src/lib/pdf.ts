@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { getVal, parsePalmerNotation } from './utils';
+import { getVal, parsePalmerNotation, calculateItemTotal } from './utils';
 
 export async function generateInvoicePDF(data: any[], doctorName: string, doctorProfile: any, settings: any, monthName?: string) {
   const doc = new jsPDF();
@@ -67,7 +67,18 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
   ];
 
   const rows = data.map((row, idx) => {
-    const total = Number(row.Total) || 0;
+    let total = Number(row.Total);
+    let rate = Number(row['Rate']);
+
+    if (isNaN(total) || isNaN(rate)) {
+      const material = String(getVal(row, ['work material', 'material', 'work']) || '').trim();
+      const units = Number(getVal(row, ['units', 'unit', 'qty', 'quantity', 'nos', 'count'])) || 1;
+      const status = String(getVal(row, ['status']) || '').trim();
+      const calc = calculateItemTotal(material, units, doctorProfile?.prices, status);
+      if (isNaN(total)) total = calc.total;
+      if (isNaN(rate)) rate = calc.rate;
+    }
+
     totalAmount += total;
 
     const toothParsed = parsePalmerNotation(getVal(row, ['tooth no', 'tooth no.']));
@@ -80,7 +91,7 @@ export async function generateInvoicePDF(data: any[], doctorName: string, doctor
       toothParsed.left,
       toothParsed.right,
       String(getVal(row, ['units', 'unit', 'qty', 'quantity', 'nos', 'count']) || 1),
-      (Number(row['Rate']) || 0).toFixed(2),
+      (Number(rate) || 0).toFixed(2),
       total.toFixed(2),
       toothParsed.hasFDI
     ];

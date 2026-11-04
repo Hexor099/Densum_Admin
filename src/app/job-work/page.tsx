@@ -50,7 +50,7 @@ export default function JobWorkPage() {
     }
 
     // Extract existing materials from doctors' prices to populate suggestions immediately
-    const defaultMaterials = new Set<string>();
+    const defaultMaterials = new Set<string>(['Flexible RPD']);
     
     // From Doctors
     Object.values(doctorsData || {}).forEach((doc: any) => {

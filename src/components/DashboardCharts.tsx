@@ -12,7 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { parseDateString, getVal } from '@/lib/utils';
+import { parseDateString, getVal, calculateItemTotal } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
 interface DashboardChartsProps {
@@ -52,20 +52,11 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
     }
 
     const material = String(getVal(row, ['work material', 'material', 'work']) || '').trim();
-
     const docPrices = doctors[docName]?.prices || {};
-    let rate = 0;
-    if (typeof docPrices[material] === 'number') {
-      rate = docPrices[material];
-    } else {
-      const found = Object.values(docPrices).find(
-        (p: any) => p && typeof p === 'object' && p.name === material
-      );
-      if (found) rate = Number((found as any).rate) || 0;
-    }
 
-    if (rate > 0) {
-      return units * rate;
+    const { rate, total } = calculateItemTotal(material, units, docPrices, status);
+    if (rate > 0 || total > 0) {
+      return total;
     }
     return Number(row.Total) || 0;
   };
